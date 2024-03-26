@@ -28,6 +28,52 @@ class _WidgetListState extends State<WidgetList> {
   void initState() {
     super.initState();
     _loadWidgetNames();
+    _initializeDatabase();
+  }
+
+  Future<void> _initializeDatabase() async {
+    // Pfad zur Datenbankdatei erstellen
+    var databasesPath = await getDatabasesPath();
+    String path = join(databasesPath, 'my_database.db');
+
+    // Datenbank öffnen bzw. erstellen
+    Database _ = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        // Tabelle "tierdoku" erstellen
+        await db.execute('CREATE TABLE tierdoku ('
+            'id INTEGER PRIMARY KEY,'
+            'stallname TEXT,'
+            'bucht TEXT,'
+            'symptome TEXT,'
+            'medikament TEXT,'
+            'farbe TEXT,'
+            'comment TEXT,'
+            'date TEXT,'
+            'second_medikament TEXT,'
+            'second_comment TEXT,'
+            'second_date TEXT,'
+            'third_medikament TEXT,'
+            'third_comment TEXT,'
+            'third_date TEXT,'
+            'end_comment TEXT,'
+            'end_date TEXT'
+            ')');
+
+        // Tabelle "tierbewegungen" erstellen
+        await db.execute('CREATE TABLE tierbewegungen ('
+            'id INTEGER PRIMARY KEY,'
+            'stallname TEXT,'
+            'anzahl INTEGER,'
+            'zugang_abgang TEXT,'
+            'tierbestand INTEGER,'
+            'comment TEXT,'
+            'date TEXT,'
+            'end TEXT'
+            ')');
+      },
+    );
   }
 
   void _loadWidgetNames() async {
