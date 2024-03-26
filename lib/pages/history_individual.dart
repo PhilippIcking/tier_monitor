@@ -34,7 +34,7 @@ class _HistoryPageSecondMedikationState
 
     // Abhängig von der aktuellen Tabelle die entsprechenden Einträge abrufen
     List<Map<String, dynamic>> entries = await database.rawQuery(
-      'SELECT * FROM $_currentTable WHERE stallname = ? ORDER BY id DESC LIMIT 10',
+      'SELECT * FROM $_currentTable WHERE stallname = ? ORDER BY id DESC LIMIT 50',
       [widget.stallname],
     );
 
