@@ -54,19 +54,22 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: Column(
         children: [
-          TextField(
-            controller: _symptomController,
-            decoration: InputDecoration(
-              hintText: 'Symptom hinzufügen',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: () {
-                  setState(() {
-                    _symptoms.add(_symptomController.text);
-                    _symptomController.clear();
-                    _saveSymptoms();
-                  });
-                },
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _symptomController,
+              decoration: InputDecoration(
+                hintText: 'Symptom hinzufügen',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                    setState(() {
+                      _symptoms.add(_symptomController.text);
+                      _symptomController.clear();
+                      _saveSymptoms();
+                    });
+                  },
+                ),
               ),
             ),
           ),
@@ -116,19 +119,22 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
           ),
-          TextField(
-            controller: _medicationController,
-            decoration: InputDecoration(
-              hintText: 'Medikament hinzufügen',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.add),
-                onPressed: () {
-                  setState(() {
-                    _medications.add(_medicationController.text);
-                    _medicationController.clear();
-                    _saveMedications();
-                  });
-                },
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _medicationController,
+              decoration: InputDecoration(
+                hintText: 'Medikament hinzufügen',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () {
+                    setState(() {
+                      _medications.add(_medicationController.text);
+                      _medicationController.clear();
+                      _saveMedications();
+                    });
+                  },
+                ),
               ),
             ),
           ),
