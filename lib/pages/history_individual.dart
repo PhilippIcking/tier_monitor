@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:sqflite/sqflite.dart'; //Android, IOS, MACOS
 import 'package:path/path.dart';
 import 'package:tier_monitor/pages/entry_second_plus_medication.dart';
+import 'package:tier_monitor/pages/change_location.dart';
 
 
 class HistoryPageSecondMedikation extends StatefulWidget {
@@ -163,6 +164,15 @@ class _HistoryPageSecondMedikationState
                           stallname: widget.stallname),
                     ),
                   );
+                } else if (value == 'umstallen') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChangeLocation(
+                          entryId: _entries[index]['id'],
+                          stallname: widget.stallname),
+                    ),
+                  );
                 }
               },
               itemBuilder: (BuildContext context) =>
@@ -178,6 +188,10 @@ class _HistoryPageSecondMedikationState
                 const PopupMenuItem<String>(
                   value: 'verendung_dokumentieren',
                   child: Text('Verendung dokumentieren'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'umstallen',
+                  child: Text('Umstallen'),
                 ),
               ],
             )
