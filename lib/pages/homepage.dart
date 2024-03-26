@@ -227,44 +227,7 @@ class _WidgetListState extends State<WidgetList> {
                 var databasesPath = await getDatabasesPath();
                 String path = join(databasesPath, 'my_database.db');
 
-                // Datenbank öffnen bzw. erstellen
-                Database database = await openDatabase(
-                  path,
-                  version: 1,
-                  onCreate: (Database db, int version) async {
-                    // Tabelle "tierdoku" erstellen
-                    await db.execute('CREATE TABLE tierdoku ('
-                        'id INTEGER PRIMARY KEY,'
-                        'stallname TEXT,'
-                        'bucht TEXT,'
-                        'symptome TEXT,'
-                        'medikament TEXT,'
-                        'farbe TEXT,'
-                        'comment TEXT,'
-                        'date TEXT,'
-                        'second_medikament TEXT,'
-                        'second_comment TEXT,'
-                        'second_date TEXT,'
-                        'third_medikament TEXT,'
-                        'third_comment TEXT,'
-                        'third_date TEXT,'
-                        'end_comment TEXT,'
-                        'end_date TEXT'
-                        ')');
-
-                    // Tabelle "tierbewegungen" erstellen
-                    await db.execute('CREATE TABLE tierbewegungen ('
-                        'id INTEGER PRIMARY KEY,'
-                        'stallname TEXT,'
-                        'anzahl INTEGER,'
-                        'zugang_abgang TEXT,'
-                        'tierbestand INTEGER,'
-                        'comment TEXT,'
-                        'date TEXT,'
-                        'end TEXT'
-                        ')');
-                  },
-                );
+                Database database = await openDatabase(path, version: 1);
 
                 // Daten aus der Tabelle "tierdoku" abrufen
                 List<Map<String, dynamic>> tierdokuRecords =
@@ -390,9 +353,7 @@ class _WidgetListState extends State<WidgetList> {
                     content: Text('Teilen beendet'),
                   ),
                 );
-              } catch (e, stackTrace) {
-                print('Fehler beim Teilen: $e');
-                print('StackTrace: $stackTrace');
+              } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Fehler beim Teilen'),
