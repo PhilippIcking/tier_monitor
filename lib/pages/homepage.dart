@@ -10,10 +10,6 @@ import 'package:tier_monitor/pages/medication_settings.dart';
 import 'package:tier_monitor/pages/second_layer.dart';
 import 'package:tier_monitor/pages/history.dart';
 
-
-
-
-
 class WidgetList extends StatefulWidget {
   const WidgetList({super.key});
 
@@ -192,7 +188,7 @@ class _WidgetListState extends State<WidgetList> {
                     content: TextField(
                       controller: nameController,
                       decoration:
-                      const InputDecoration(hintText: 'Name Betrieb'),
+                          const InputDecoration(hintText: 'Name Betrieb'),
                       autofocus: true,
                     ),
                     actions: [
@@ -231,11 +227,11 @@ class _WidgetListState extends State<WidgetList> {
 
                 // Daten aus der Tabelle "tierdoku" abrufen
                 List<Map<String, dynamic>> tierdokuRecords =
-                await database.query('tierdoku');
+                    await database.query('tierdoku');
 
                 // Daten aus der Tabelle "tierbewegungen" abrufen
                 List<Map<String, dynamic>> tierbewegungenRecords =
-                await database.query('tierbewegungen');
+                    await database.query('tierbewegungen');
 
                 // Erstelle neue Excel-Datei
                 var excel = Excel.createExcel();
@@ -252,7 +248,7 @@ class _WidgetListState extends State<WidgetList> {
                   const TextCellValue('Farbe'),
                   const TextCellValue('Kommentar'),
                   const TextCellValue('Datum ISO (YYYY-MM-DD)'),
-                  const TextCellValue('Datum Excel (DD/MM/YYYY)'),
+                  const TextCellValue('Datum Excel Format'),
                   const TextCellValue('Zweitmedikation'),
                   const TextCellValue('Zweitmedikation Kommentar'),
                   const TextCellValue('Zweitmedikation Datum ISO'),
@@ -270,9 +266,10 @@ class _WidgetListState extends State<WidgetList> {
                   // Das ursprüngliche Datum im Format "YYYY-MM-DD"
                   String originalDate = record['date'];
 
-                  // Das Datum im Format "DD/MM/YYYY" erstellen
-                  String formattedDate =
-                      '${originalDate.substring(8, 10)}/${originalDate.substring(5, 7)}/${originalDate.substring(0, 4)}';
+                  // Parse the formatted date into year, month, and day components
+                  int year = int.parse(originalDate.substring(0, 4));
+                  int month = int.parse(originalDate.substring(5, 7));
+                  int day = int.parse(originalDate.substring(8, 10));
 
                   sheet1.appendRow([
                     TextCellValue(betriebName),
@@ -282,8 +279,10 @@ class _WidgetListState extends State<WidgetList> {
                     TextCellValue(record['medikament'] ?? ''),
                     TextCellValue(record['farbe'] ?? ''),
                     TextCellValue(record['comment'] ?? ''),
-                    TextCellValue(originalDate), // Originalformat
-                    TextCellValue(formattedDate), // Excel Format
+                    TextCellValue(originalDate),
+                    // Originalformat
+                    DateCellValue(year: year, month: month, day: day),
+                    // Excel Format using DateCellValue
                     TextCellValue(record['second_medikament'] ?? ''),
                     TextCellValue(record['second_comment'] ?? ''),
                     TextCellValue(record['second_date'] ?? ''),
@@ -307,7 +306,7 @@ class _WidgetListState extends State<WidgetList> {
                     const TextCellValue('Tierbestand'),
                     const TextCellValue('Kommentar'),
                     const TextCellValue('Datum ISO (YYYY-MM-DD)'),
-                    const TextCellValue('Datum Excel (DD/MM/YYYY)'),
+                    const TextCellValue('Datum Excel Format'),
                     const TextCellValue('Zusatz'),
                   ]);
                   // Füge die Datensätze hinzu
@@ -318,19 +317,22 @@ class _WidgetListState extends State<WidgetList> {
                     // Das ursprüngliche Datum im Format "YYYY-MM-DD"
                     String originalDate = record['date'];
 
-                    // Das Datum im Format "DD/MM/YYYY" erstellen
-                    String formattedDate =
-                        '${originalDate.substring(8, 10)}/${originalDate.substring(5, 7)}/${originalDate.substring(0, 4)}';
+                    // Parse the formatted date into year, month, and day components
+                    int year = int.parse(originalDate.substring(0, 4));
+                    int month = int.parse(originalDate.substring(5, 7));
+                    int day = int.parse(originalDate.substring(8, 10));
 
                     sheet2.appendRow([
                       TextCellValue(betriebName),
                       TextCellValue(stallName),
-                      TextCellValue(record['anzahl'].toString()),
+                      IntCellValue(record['anzahl']),
                       TextCellValue(record['zugang_abgang'] ?? ''),
-                      TextCellValue(record['tierbestand'].toString()),
+                      IntCellValue(record['tierbestand']),
                       TextCellValue(record['comment'] ?? ''),
-                      TextCellValue(originalDate), // Originalformat
-                      TextCellValue(formattedDate), // Excel Format
+                      TextCellValue(originalDate),
+                      // Original format
+                      DateCellValue(year: year, month: month, day: day),
+                      // Excel Format using DateCellValue
                       TextCellValue(record['end'] ?? ''),
                     ]);
                   }
@@ -339,14 +341,14 @@ class _WidgetListState extends State<WidgetList> {
                 // Teilen der Excel-Datei
                 final temp = await getTemporaryDirectory();
                 String currentDate =
-                DateTime.now().toString().split(' ')[0]; // YYYY-MM-DD
+                    DateTime.now().toString().split(' ')[0]; // YYYY-MM-DD
                 String formattedDate = currentDate.replaceAll('-', '_');
                 final pathexcel =
                     '${temp.path}/exported_data_tierdoku_$formattedDate.xlsx';
                 File(pathexcel).writeAsBytesSync(excel.save()!);
 
                 await Share.shareXFiles([XFile(pathexcel)],
-                    text: 'Export Data');
+                    text: 'Exported data as Excel file');
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
