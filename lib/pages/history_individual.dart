@@ -5,7 +5,6 @@ import 'package:path/path.dart';
 import 'package:tier_monitor/pages/entry_second_plus_medication.dart';
 import 'package:tier_monitor/pages/change_location.dart';
 
-
 class HistoryPageSecondMedikation extends StatefulWidget {
   final String stallname;
 
@@ -124,7 +123,7 @@ class _HistoryPageSecondMedikationState
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                         content:
-                        Text('Löschen von Tierbewegungen nicht möglich')),
+                            Text('Löschen von Tierbewegungen nicht möglich')),
                   );
                 }
               },
@@ -137,64 +136,76 @@ class _HistoryPageSecondMedikationState
             ),
             trailing: _currentTable == 'tierdoku'
                 ? PopupMenuButton<String>(
-              onSelected: (String value) async {
-                if (value == 'zweit_medikation') {
-                  // Navigation zur Seite für die Zweitmedikation
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EntryPageSecondMedikation(
-                          entryId: _entries[index]['id']),
-                    ),
-                  );
-                } else if (value == 'dritt_medikation') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EntryPageThirdMedikation(
-                          entryId: _entries[index]['id']),
-                    ),
-                  );
-                } else if (value == 'verendung_dokumentieren') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EntryPageEnd(
-                          entryId: _entries[index]['id'],
-                          stallname: widget.stallname),
-                    ),
-                  );
-                } else if (value == 'umstallen') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChangeLocation(
-                          entryId: _entries[index]['id'],
-                          stallname: widget.stallname),
-                    ),
-                  );
-                }
-              },
-              itemBuilder: (BuildContext context) =>
-              <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'zweit_medikation',
-                  child: Text('Zweitmedikation eintragen'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'dritt_medikation',
-                  child: Text('Drittmedikation eintragen'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'verendung_dokumentieren',
-                  child: Text('Verendung dokumentieren'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'umstallen',
-                  child: Text('Umstallen'),
-                ),
-              ],
-            )
+                    onSelected: (String value) async {
+                      if (value == 'zweit_medikation') {
+                        // Navigation zur Seite für die Zweitmedikation
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EntryPageSecondMedikation(
+                                entryId: _entries[index]['id']),
+                          ),
+                        ).then((_) {
+                          // This code executes when the SecondMedikation page is popped
+                          _fetchEntriesFromDatabase();
+                        });
+                      } else if (value == 'dritt_medikation') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EntryPageThirdMedikation(
+                                entryId: _entries[index]['id']),
+                          ),
+                        ).then((_) {
+                          // This code executes when the SecondMedikation page is popped
+                          _fetchEntriesFromDatabase();
+                        });
+                      } else if (value == 'verendung_dokumentieren') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EntryPageEnd(
+                                entryId: _entries[index]['id'],
+                                stallname: widget.stallname),
+                          ),
+                        ).then((_) {
+                          // This code executes when the SecondMedikation page is popped
+                          _fetchEntriesFromDatabase();
+                        });
+                      } else if (value == 'umstallen') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChangeLocation(
+                                entryId: _entries[index]['id'],
+                                stallname: widget.stallname),
+                          ),
+                        ).then((_) {
+                          // This code executes when the SecondMedikation page is popped
+                          _fetchEntriesFromDatabase();
+                        });
+                      }
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'zweit_medikation',
+                        child: Text('Zweitmedikation eintragen'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'dritt_medikation',
+                        child: Text('Drittmedikation eintragen'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'verendung_dokumentieren',
+                        child: Text('Verendung dokumentieren'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'umstallen',
+                        child: Text('Umstallen'),
+                      ),
+                    ],
+                  )
                 : null,
             children: [
               if (_entries[index]['date'] != null)
@@ -213,7 +224,7 @@ class _HistoryPageSecondMedikationState
               if (_entries[index]['medikament'] != null)
                 ListTile(
                   title:
-                  Text("Erstmedikation: ${_entries[index]['medikament']}"),
+                      Text("Erstmedikation: ${_entries[index]['medikament']}"),
                 ),
               if (_entries[index]['farbe'] != null)
                 ListTile(
@@ -222,7 +233,7 @@ class _HistoryPageSecondMedikationState
               if (_entries[index]['zugang_abgang'] != null)
                 ListTile(
                   title:
-                  Text("Zu-/Abgang: ${_entries[index]['zugang_abgang']}"),
+                      Text("Zu-/Abgang: ${_entries[index]['zugang_abgang']}"),
                 ),
               if (_entries[index]['anzahl'] != null)
                 ListTile(
@@ -231,7 +242,7 @@ class _HistoryPageSecondMedikationState
               if (_entries[index]['tierbestand'] != null)
                 ListTile(
                   title:
-                  Text("Gesamtbestand: ${_entries[index]['tierbestand']}"),
+                      Text("Gesamtbestand: ${_entries[index]['tierbestand']}"),
                 ),
               if (_entries[index]['comment'] != null &&
                   _entries[index]['comment'] != "")
