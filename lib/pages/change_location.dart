@@ -17,7 +17,7 @@ class ChangeLocation extends StatefulWidget {
 
 class _ChangeLocationState extends State<ChangeLocation> {
   String _selectedNewLocation = '';
-
+  bool _buttonPressed = false;
   DateTime selectedDate = DateTime.now();
   bool _isToggleOn = true;
   List<String> _locations = [];
@@ -115,18 +115,22 @@ class _ChangeLocationState extends State<ChangeLocation> {
               ],
             ),
             const SizedBox(height: 16.0),
-          ElevatedButton(
-            onPressed: _selectedNewLocation != ''
-                ? () {
-              updateEntry(widget.entryId, _selectedNewLocation, selectedDate, _isToggleOn);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Daten erfolgreich gespeichert'),
-                ),
-              );
-            }
-                : null,
-            child: const Text('Speichern'),
+            ElevatedButton(
+              onPressed: _selectedNewLocation != '' && !_buttonPressed
+                  ? () {
+                      setState(() {
+                        _buttonPressed = true;
+                      });
+                      updateEntry(widget.entryId, _selectedNewLocation,
+                          selectedDate, _isToggleOn);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Daten erfolgreich gespeichert'),
+                        ),
+                      );
+                    }
+                  : null,
+              child: const Text('Speichern'),
             ),
           ],
         ),
@@ -218,7 +222,8 @@ class _ChangeLocationState extends State<ChangeLocation> {
       'tierdoku', // Tabellenname
       {
         'stallname': newLocation, // Neue Stallname-Wert
-        'comment': newComment},
+        'comment': newComment
+      },
       where: 'id = ?', // Bedingung: ID
       whereArgs: [entryId], // Wert: ID
     );
