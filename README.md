@@ -17,11 +17,11 @@ Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest
 ### Screenshots
 ![IMG_20240328_230050.jpg](Readme_files%2FIMG_20240328_230050.jpg)
 Beschreibung des Screenshots.
-![Screenshot 2](screenshots%2FIMG_20240328_230132.jpg)
+![IMG_20240328_230132.jpg](Readme_files%2FIMG_20240328_230132.jpg)
 Beschreibung des Screenshots.
-![Screenshot 3](screenshots%2FIMG_20240328_230154.jpg)
+![IMG_20240328_230154.jpg](Readme_files%2FIMG_20240328_230154.jpg)
 Beschreibung des Screenshots.
-![Screenshot 4](screenshots%2FIMG_20240328_230241.jpg)
+![IMG_20240328_230241.jpg](Readme_files%2FIMG_20240328_230241.jpg)
 Beschreibung des Screenshots.
 
 ### Probleme und Feedback
