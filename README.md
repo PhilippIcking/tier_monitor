@@ -1,4 +1,6 @@
-**Tier Monitor**
+# Tier Monitor
+
+[![made-with-python](https://img.shields.io/badge/Made%20With-Flutter-blue)](https://flutter.dev/)
 
 Tier Monitor ist eine Open-Source-App, mit der Tierbewegungen und -behandlungen einfach digitalisiert werden können. Die App ermöglicht es, Syntome, Medikationen und Tierbewegungen einzugeben, zu speichern und als Excel-Datei zu exportieren. Alle Daten werden rein lokal auf dem Gerät gespeichert.
 
@@ -15,7 +17,7 @@ Die App kann derzeit nur als Android APK heruntergeladen werden. Klicke [hier](h
 Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der [Lizenzdatei](https://github.com/PhilippIcking/tier_monitor/blob/5196d9d84f6b55aa58a105c688df87de130b9e85/LICENSE).
 
 ### Screenshots
-![IMG_20240328_230050.jpg](Readme_files%2FIMG_20240328_230050.jpg)![IMG_20240328_230132.jpg](Readme_files%2FIMG_20240328_230132.jpg)![IMG_20240328_230154.jpg](Readme_files%2FIMG_20240328_230154.jpg)
+<img src="Readme_files%2FIMG_20240328_230050.jpg" width="260" height="538"/>&nbsp;<img src="Readme_files%2FIMG_20240328_230132.jpg" width="260" height="538"/>&nbsp;&nbsp;<img src="Readme_files%2FIMG_20240328_230154.jpg" width="260" height="538"/><br></br>
 Beschreibung des Screenshots.
 ![IMG_20240328_230241.jpg](Readme_files%2FIMG_20240328_230241.jpg)
 Beschreibung des Screenshots.
