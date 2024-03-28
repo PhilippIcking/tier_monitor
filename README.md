@@ -12,17 +12,23 @@ Die App kann derzeit nur als Android APK heruntergeladen werden. Klicke [hier](l
 4. Führe regelmäßige manuelle Backups durch, um deine Daten zu sichern.
 
 ### Lizenz
-Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der [Lizenzdatei](link_zur_lizenz).
+Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der [Lizenzdatei](https://github.com/PhilippIcking/tier_monitor/blob/5196d9d84f6b55aa58a105c688df87de130b9e85/LICENSE).
 
 ### Screenshots
-![Screenshot 1](screenshots/screenshot1.png)
+![Screenshot 1](screenshots%2FIMG_20240328_230050.jpg)
 Beschreibung des Screenshots.
 
-![Screenshot 2](screenshots/screenshot2.png)
+![Screenshot 2](screenshots%2FIMG_20240328_230132.jpg)
+Beschreibung des Screenshots.
+
+![Screenshot 3](screenshots%2FIMG_20240328_230154.jpg)
+Beschreibung des Screenshots.
+
+![Screenshot 4](screenshots%2FIMG_20240328_230241.jpg)
 Beschreibung des Screenshots.
 
 ### Probleme und Feedback
-Melde Probleme oder gib Feedback auf der [Issue-Tracker-Seite](link_zum_issue_tracker).
+Melde Probleme oder gib Feedback auf der [Issue-Tracker-Seite](https://github.com/PhilippIcking/tier_monitor/issues).
 
 ---
 
