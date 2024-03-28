@@ -17,14 +17,11 @@ Die App kann derzeit nur als Android APK heruntergeladen werden. Klicke [hier](h
 Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der [Lizenzdatei](https://github.com/PhilippIcking/tier_monitor/blob/5196d9d84f6b55aa58a105c688df87de130b9e85/LICENSE).
 
 ### Screenshots
-<img src="Readme_files%2FIMG_20240328_230050.jpg" width="260" height="538"/>&nbsp;<img src="Readme_files%2FIMG_20240328_230132.jpg" width="260" height="538"/>&nbsp;&nbsp;<img src="Readme_files%2FIMG_20240328_230154.jpg" width="260" height="538"/><br></br>
-Beschreibung des Screenshots.
-![IMG_20240328_230241.jpg](Readme_files%2FIMG_20240328_230241.jpg)
-Beschreibung des Screenshots.
+<img src="Readme_files%2FIMG_20240328_230050.jpg" width="260" height="538"/>&nbsp;<img src="Readme_files%2FIMG_20240328_230154.jpg" width="260" height="538"/>&nbsp;&nbsp;<img src="Readme_files%2FIMG_20240328_230241.jpg" width="260" height="538"/><br></br>
 
 ### Probleme und Feedback
 Melde Probleme oder gib Feedback auf der [Issue-Tracker-Seite](https://github.com/PhilippIcking/tier_monitor/issues).
 
 ---
 
-*Bitte beachte, dass diese App noch in der Entwicklung ist und möglicherweise nicht alle Funktionen stabil sind. Wir arbeiten ständig daran, die App zu verbessern und freuen uns über dein Feedback und deine Beiträge.*
+*Bitte beachte, dass diese App noch in der Entwicklung ist und möglicherweise nicht alle Funktionen stabil sind.*
