@@ -28,7 +28,6 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-
 android {
     namespace "com.example.tier_monitor"
     compileSdk flutter.compileSdkVersion
