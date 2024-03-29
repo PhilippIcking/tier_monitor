@@ -18,6 +18,7 @@ Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest
 
 ### Screenshots
 <img src="Readme_files%2FIMG_20240328_230050.jpg" width="260" height="538"/>&nbsp;<img src="Readme_files%2FIMG_20240328_230154.jpg" width="260" height="538"/>&nbsp;&nbsp;<img src="Readme_files%2FIMG_20240328_230241.jpg" width="260" height="538"/><br></br>
+<img src="Readme_files%2FIMG_20240329_171607.jpg" width="260" height="538"/>&nbsp;<img src="Readme_files%2FIMG_20240329_171617.jpg" width="260" height="538"/>&nbsp;&nbsp;<img src="Readme_files%2FIMG_20240329_171628.jpg" width="260" height="538"/><br></br>
 
 ### Probleme und Feedback
 Melde Probleme oder gib Feedback auf der [Issue-Tracker-Seite](https://github.com/PhilippIcking/tier_monitor/issues).
