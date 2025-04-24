@@ -31,11 +31,10 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // Die drei Tabs: Tagebuch (Homepage), Analyse (Platzhalter) und Einstellungen.
   final List<Widget> _pages = const [
-    WidgetList(), // Seite aus homepage.dart
-    AnalysisPage(), // Neue Platzhalterseite
-    SettingsPage(), // Seite aus medication_settings.dart
+    WidgetList(),
+    AnalysisPage(),
+    SettingsPage(),
   ];
 
   @override

@@ -47,8 +47,6 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
     }
   }
 
-  /// Update-Funktion: Es werden das jeweilige Feld (z. B. "second_medikament")
-  /// und das zugehörige Datum (z. B. "second_date") aktualisiert.
   Future<void> updateEntry(
       int entryId, String field, String value, DateTime date) async {
     var databasesPath = await getDatabasesPath();
@@ -123,8 +121,6 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Speichern der Zweitmedikation: Es werden beide Felder (Medikament und Kommentar)
-          // sowie das Datum in der Datenbank aktualisiert.
           updateEntry(widget.entryId, 'second_medikament', _selectedMedikament, selectedDate);
           updateEntry(widget.entryId, 'second_comment', _selectedComment, selectedDate);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -317,7 +313,6 @@ class _EntryPageEndState extends State<EntryPageEnd> {
     await db.close();
   }
 
-  /// Neu: context wird übergeben, um SnackBar anzuzeigen
   Future<void> _insertVerendungMovement(BuildContext context) async {
     final db = await _openDb();
 

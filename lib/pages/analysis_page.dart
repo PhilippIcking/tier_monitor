@@ -3,9 +3,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart';
 import 'dart:async';
-import 'dart:collection';
-
-// fl_chart
 import 'package:fl_chart/fl_chart.dart';
 
 class AnalysisPage extends StatefulWidget {

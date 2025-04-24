@@ -87,9 +87,8 @@ class _TierbewegungState extends State<Tierbewegung> {
     }
   }
 
-  // Aktualisierte _speichern-Funktion: Neue Bewegung einfügen und alle nachfolgenden Einträge neu kalkulieren
   Future<void> _speichern(BuildContext context) async {
-    final int movementValue = _isZugang ? _newCount : -_newCount;
+    // final int movementValue = _isZugang ? _newCount : -_newCount;
 
     // Neuen Eintrag vorbereiten (temporärer tierbestand 0, wird später aktualisiert)
     final newRecord = {
