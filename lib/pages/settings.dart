@@ -40,14 +40,14 @@ class _SettingsPageState extends State<SettingsPage>
     // Symptome: default ["Husten"]
     _symptoms = prefs.getStringList('symptoms') ?? [];
     if (_symptoms.isEmpty) {
-      _symptoms = ['Husten'];
+      _symptoms = ['Beispiel Symtom'];
       await prefs.setStringList('symptoms', _symptoms);
     }
 
     // Medikamente: default ["Hustensaft"]
     _medications = prefs.getStringList('medications') ?? [];
     if (_medications.isEmpty) {
-      _medications = ['Hustensaft'];
+      _medications = ['Beispiel Medikament'];
       await prefs.setStringList('medications', _medications);
     }
 
