@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart'; // Android, IOS, MACOS
+import 'package:sqflite/sqflite.dart'; // Android, iOS, macOS
 import 'package:path/path.dart';
 import 'package:excel/excel.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dart:io';
 import 'package:tier_monitor/pages/history.dart';
 import 'package:tier_monitor/pages/second_layer.dart';
@@ -30,7 +31,7 @@ class _WidgetListState extends State<WidgetList> {
     var databasesPath = await getDatabasesPath();
     String path = join(databasesPath, 'my_database.db');
 
-    Database _ = await openDatabase(
+    await openDatabase(
       path,
       version: 1,
       onCreate: (Database db, int version) async {
@@ -93,7 +94,7 @@ class _WidgetListState extends State<WidgetList> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Löschen bestätigen'),
-          content: Text('Bist du dir sicher, dass du $name löschen möchtest?'),
+          content: Text('Bist du dir sicher, dass du "$name" löschen möchtest?'),
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -152,7 +153,7 @@ class _WidgetListState extends State<WidgetList> {
         TextCellValue('Drittmedikation Kommentar'),
         TextCellValue('Drittmedikation Datum ISO'),
         TextCellValue('Kommentar Verendung'),
-        TextCellValue('Datum Verendung ISO')
+        TextCellValue('Datum Verendung ISO'),
       ]);
 
       for (var record in tierdokuRecords) {
@@ -239,16 +240,48 @@ class _WidgetListState extends State<WidgetList> {
     }
   }
 
+  Future<void> _showAddBetriebDialog(BuildContext context) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final nameController = TextEditingController();
+        return AlertDialog(
+          title: const Text('Betrieb hinzufügen'),
+          content: TextField(
+            controller: nameController,
+            decoration: const InputDecoration(hintText: 'Name Betrieb'),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Abbruch'),
+              onPressed: () {
+                Navigator.pop(dialogContext, null);
+              },
+            ),
+            TextButton(
+              child: const Text('Hinzufügen'),
+              onPressed: () {
+                final value = nameController.value.text;
+                Navigator.pop(dialogContext, value);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (name != null && name.trim().isNotEmpty) {
+      _addNewWidget(name.trim());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Betriebe'),
-
-        elevation: 5.0, // Erhöhte Elevation für mehr Schatten
-
-        // Entfernt wurde der Button links, der zu den Einstellungen führte.
+        elevation: 5.0,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -262,7 +295,7 @@ class _WidgetListState extends State<WidgetList> {
         ],
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.only(top: 5.0), // Top-Padding hinzugefügt
+        padding: const EdgeInsets.only(top: 5.0),
         itemCount: _widgetNames.length,
         itemBuilder: (BuildContext context, int index) {
           final String name = _widgetNames[index];
@@ -283,53 +316,25 @@ class _WidgetListState extends State<WidgetList> {
           );
         },
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
+      floatingActionButton: SpeedDial(
+        icon: Icons.add,
+        activeIcon: Icons.close,
+        backgroundColor: Theme.of(context).secondaryHeaderColor,
+        overlayOpacity: 0.0,
+        spacing: 8,
+        spaceBetweenChildren: 8,
         children: [
-          FloatingActionButton(
-            heroTag: 'addWidget',
-            onPressed: () async {
-              final name = await showDialog<String>(
-                context: context,
-                builder: (BuildContext context) {
-                  final nameController = TextEditingController();
-                  return AlertDialog(
-                    title: const Text('Betrieb hinzufügen'),
-                    content: TextField(
-                      controller: nameController,
-                      decoration:
-                      const InputDecoration(hintText: 'Name Betrieb'),
-                      autofocus: true,
-                    ),
-                    actions: [
-                      TextButton(
-                        child: const Text('Abbruch'),
-                        onPressed: () {
-                          Navigator.pop(context, null);
-                        },
-                      ),
-                      TextButton(
-                        child: const Text('Hinzufügen'),
-                        onPressed: () {
-                          final value = nameController.value.text;
-                          Navigator.pop(context, value);
-                        },
-                      ),
-                    ],
-                  );
-                },
-              );
-              if (name != null) {
-                _addNewWidget(name);
-              }
-            },
+          SpeedDialChild(
             child: const Icon(Icons.add),
+            label: 'Betrieb hinzufügen',
+            labelBackgroundColor: Theme.of(context).cardColor,
+            onTap: () => _showAddBetriebDialog(context),
           ),
-          const SizedBox(height: 16.0),
-          FloatingActionButton(
-            heroTag: 'exportData',
-            onPressed: () => _exportData(context),
+          SpeedDialChild(
             child: const Icon(Icons.download),
+            label: 'Als Tabelle exportieren',
+            labelBackgroundColor: Theme.of(context).cardColor,
+            onTap: () => _exportData(context),
           ),
         ],
       ),
