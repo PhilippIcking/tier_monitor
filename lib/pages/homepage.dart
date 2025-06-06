@@ -96,7 +96,7 @@ class _WidgetListState extends State<WidgetList> {
   }
 
   Future<void> _exportData(BuildContext context) async {
-    final currentContext = context; // Speichere den BuildContext
+    final currentContext = context;
     try {
       var databasesPath = await getDatabasesPath();
       String path = join(databasesPath, 'my_database.db');
@@ -203,7 +203,6 @@ class _WidgetListState extends State<WidgetList> {
         ..createSync(recursive: true)
         ..writeAsBytesSync(excel.encode()!);
 
-      // Verwende shareXFiles statt shareFiles:
       await Share.shareXFiles([XFile(pathexcel)], text: 'Exportierte Daten');
       await database.close();
     } catch (e) {
@@ -293,44 +292,70 @@ class _WidgetListState extends State<WidgetList> {
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.only(top: 5.0),
-        itemCount: _widgetNames.length,
-        itemBuilder: (BuildContext context, int index) {
-          final String name = _widgetNames[index];
-          return Dismissible(
-            key: Key(name),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (DismissDirection direction) async {
-              final bool? confirmed = await _confirmDelete(context, name);
-              return confirmed ?? false;
-            },
-            onDismissed: (direction) {
-              _removeWidget(name);
-            },
-            background: Container(), // leer, da nur endToStart erlaubt
-            secondaryBackground: Container(
-              color: Colors.red,
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 20.0),
-              child: const Icon(
-                Icons.delete,
-                color: Colors.white,
-              ),
-            ),
-            child: ListTile(
-              title: Text(name),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => WidgetCreator(name: name),
-                  ),
-                );
+      body: Center(
+        child: ListView.builder(
+          shrinkWrap: true,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          itemCount: _widgetNames.length,
+          itemBuilder: (BuildContext context, int index) {
+            final String name = _widgetNames[index];
+            return Dismissible(
+              key: Key(name),
+              direction: DismissDirection.endToStart,
+              confirmDismiss: (DismissDirection direction) async {
+                final bool? confirmed = await _confirmDelete(context, name);
+                return confirmed ?? false;
               },
-            ),
-          );
-        },
+              onDismissed: (direction) {
+                _removeWidget(name);
+              },
+              background: Container(),
+              secondaryBackground: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20.0),
+                child: const Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                  size: 30.0,
+                ),
+              ),
+              child: Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                elevation: 3.0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8.0),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WidgetCreator(name: name),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.store, size: 30.0),
+                        const SizedBox(width: 12.0),
+                        Text(
+                          name,
+                          style: const TextStyle(fontSize: 20.0),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
       floatingActionButton: SpeedDial(
         icon: Icons.add,
