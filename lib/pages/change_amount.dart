@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'package:sqflite/sqflite.dart'; // Android, IOS, MACOS
+import 'package:sqflite/sqflite.dart'; // Android, iOS, macOS
 import 'package:path/path.dart';
 
 class Tierbewegung extends StatefulWidget {
@@ -39,16 +39,17 @@ class _TierbewegungState extends State<Tierbewegung> {
     await prefs.setInt(widget.stallname, _currentCount);
   }
 
-  // Aktualisierte Funktion zur Überprüfung und Verarbeitung der neuen Bewegung
   Future<void> _updateCount(BuildContext context) async {
-    // Ermittele den Baseline-Wert: Letzter tierbestand vor dem neuen Datum
     var databasesPath = await getDatabasesPath();
     String path = join(databasesPath, 'my_database.db');
     Database database = await openDatabase(path, version: 1);
 
     final baselineResult = await database.rawQuery(
-        "SELECT tierbestand FROM tierbewegungen WHERE stallname = ? AND date < ? ORDER BY date DESC LIMIT 1",
-        [widget.stallname, selectedDate.toString()]);
+      "SELECT tierbestand FROM tierbewegungen "
+          "WHERE stallname = ? AND date < ? "
+          "ORDER BY date DESC LIMIT 1",
+      [widget.stallname, selectedDate.toString()],
+    );
     int baseline = 0;
     if (baselineResult.isNotEmpty) {
       baseline = baselineResult.first['tierbestand'] as int;
@@ -88,9 +89,6 @@ class _TierbewegungState extends State<Tierbewegung> {
   }
 
   Future<void> _speichern(BuildContext context) async {
-    // final int movementValue = _isZugang ? _newCount : -_newCount;
-
-    // Neuen Eintrag vorbereiten (temporärer tierbestand 0, wird später aktualisiert)
     final newRecord = {
       'stallname': widget.stallname,
       'anzahl': _newCount,
@@ -105,32 +103,33 @@ class _TierbewegungState extends State<Tierbewegung> {
     String path = join(databasesPath, 'my_database.db');
     Database database = await openDatabase(path, version: 1);
 
-    // Neuen Eintrag in die Datenbank einfügen
     await database.insert('tierbewegungen', newRecord);
 
-    // Baseline ermitteln: Letzter tierbestand vor dem neuen Datum
     final baselineResult = await database.rawQuery(
-        "SELECT tierbestand FROM tierbewegungen WHERE stallname = ? AND date < ? ORDER BY date DESC LIMIT 1",
-        [widget.stallname, selectedDate.toString()]);
+      "SELECT tierbestand FROM tierbewegungen "
+          "WHERE stallname = ? AND date < ? "
+          "ORDER BY date DESC LIMIT 1",
+      [widget.stallname, selectedDate.toString()],
+    );
     int baseline = 0;
     if (baselineResult.isNotEmpty) {
       baseline = baselineResult.first['tierbestand'] as int;
     }
 
-    // Alle Einträge ab dem neuen Datum (inklusive) abfragen – sortiert nach Datum und id
-    final List<Map<String, dynamic>> subsequentRecords = await database.rawQuery(
-        "SELECT * FROM tierbewegungen WHERE stallname = ? AND date >= ? ORDER BY date ASC, id ASC",
-        [widget.stallname, selectedDate.toString()]);
+    final subsequentRecords = await database.rawQuery(
+      "SELECT * FROM tierbewegungen "
+          "WHERE stallname = ? AND date >= ? "
+          "ORDER BY date ASC, id ASC",
+      [widget.stallname, selectedDate.toString()],
+    );
 
     int cumulative = baseline;
-    // Alle betroffenen Einträge neu kalkulieren
     for (var record in subsequentRecords) {
       int recordAnzahl = record['anzahl'] as int;
       String zugangAbgang = record['zugang_abgang'] as String;
       int recordMovement = (zugangAbgang == 'Zugang') ? recordAnzahl : -recordAnzahl;
       cumulative += recordMovement;
 
-      // Den tierbestand für den aktuellen Datensatz updaten (vorausgesetzt, es gibt eine 'id'-Spalte)
       int recordId = record['id'] as int;
       await database.update(
         'tierbewegungen',
@@ -140,7 +139,6 @@ class _TierbewegungState extends State<Tierbewegung> {
       );
     }
 
-    // _currentCount aktualisieren
     setState(() {
       _currentCount = cumulative;
     });
@@ -156,7 +154,6 @@ class _TierbewegungState extends State<Tierbewegung> {
 
   @override
   Widget build(BuildContext context) {
-    // Hintergrundfarbe des FAB: Aktiv nur, wenn _newCount > 0
     final Color fabColor = (_newCount > 0)
         ? Theme.of(context).colorScheme.primary
         : Colors.grey;
@@ -166,124 +163,132 @@ class _TierbewegungState extends State<Tierbewegung> {
         title: Text('Tierbewegung: ${widget.stallname.split("#")[1]}'),
         elevation: 5.0,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Anzeige der aktuellen Tierzahl
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Aktuelle Tierzahl: $_currentCount',
-              style: Theme.of(context).textTheme.titleLarge,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
             ),
-          ),
-          // Eingabefelder und weitere Optionen
-          Expanded(
-            child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Aktuelle Tierzahl
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 12),
+                      Text(
+                        'Aktuelle Tierzahl: $_currentCount',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 32),
+
                   // Toggle Buttons für Zugang/Abgang
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: ToggleButtons(
-                      isSelected: [_isZugang, !_isZugang],
-                      onPressed: (index) {
-                        setState(() {
-                          _isZugang = index == 0;
-                          if (_isZugang) _isToggleOn = false;
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      selectedColor: Theme.of(context).colorScheme.onPrimary,
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fillColor: Theme.of(context).colorScheme.primaryContainer,
-                      children: const [
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text('Zugang'),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text('Abgang'),
-                        ),
-                      ],
-                    ),
+                  ToggleButtons(
+                    isSelected: [_isZugang, !_isZugang],
+                    onPressed: (index) {
+                      setState(() {
+                        _isZugang = index == 0;
+                        if (_isZugang) _isToggleOn = false;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    selectedColor: Theme.of(context).colorScheme.onPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fillColor: Theme.of(context).colorScheme.primaryContainer,
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Text('Zugang', style: TextStyle(fontSize: 16)),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Text('Abgang', style: TextStyle(fontSize: 16)),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16.0),
+                  const Divider(height: 32),
+
                   // Eingabefeld für Tierbewegung
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: TextFormField(
-                      decoration: const InputDecoration(
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                        hintText: 'Anzahl',
-                        labelText: 'Tierbewegung',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) {
-                        setState(() {
-                          _newCount = int.tryParse(value) ?? 0;
-                        });
-                      },
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelText: 'Tierbewegung',
+                      border: OutlineInputBorder(),
                     ),
+                    style: const TextStyle(fontSize: 18),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      setState(() {
+                        _newCount = int.tryParse(value) ?? 0;
+                      });
+                    },
                   ),
-                  const SizedBox(height: 16.0),
-                  // Eingabefeld für Zusatzkommentar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: TextFormField(
-                      decoration: const InputDecoration(
-                        floatingLabelBehavior: FloatingLabelBehavior.always,
-                        labelText: 'Zusatz',
-                        hintText: 'Kommentar (optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (newValue) {
-                        setState(() {
-                          _selectedComment = newValue.toString();
-                        });
-                      },
+                  const Divider(height: 32),
+
+                  // Kommentar-Eingabe (multiline, min 3 Zeilen, max 5 Zeilen)
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelText: 'Zusatzkommentar (optional)',
+                      border: OutlineInputBorder(),
                     ),
+                    style: const TextStyle(fontSize: 18),
+                    keyboardType: TextInputType.multiline,
+                    minLines: 2,
+                    maxLines: 5,
+                    onChanged: (newValue) {
+                      setState(() {
+                        _selectedComment = newValue.toString();
+                      });
+                    },
                   ),
-                  const SizedBox(height: 16.0),
+                  const Divider(height: 32),
+
                   // Switch für Verendung
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Verendung'),
-                        Switch(
-                          value: _isToggleOn,
-                          onChanged: !_isZugang
-                              ? (value) {
-                            setState(() {
-                              _isToggleOn = value;
-                            });
-                          }
-                              : null,
-                        ),
-                      ],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 12),
+                      const Text('Verendung', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 12),
+                      Switch(
+                        value: _isToggleOn,
+                        onChanged: !_isZugang
+                            ? (value) {
+                          setState(() {
+                            _isToggleOn = value;
+                          });
+                        }
+                            : null,
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 32),
+
+                  // Datumsauswahl
+                  ListTile(
+                    leading: const Icon(Icons.calendar_today, size: 28),
+                    title: Text(
+                      "${selectedDate.toLocal()}".split(' ')[0],
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit, size: 28),
+                      onPressed: () => _selectDate(context),
                     ),
                   ),
-                  const SizedBox(height: 16.0),
-                  // Datumsauswahl
-                  Text("${selectedDate.toLocal()}".split(' ')[0]),
-                  const SizedBox(height: 16.0),
-                  ElevatedButton(
-                    onPressed: () => _selectDate(context),
-                    child: const Text('Datum ändern'),
-                  ),
-                  const SizedBox(height: 16.0),
                 ],
               ),
             ),
           ),
-        ],
+        ),
       ),
-      // Floating Action Button: Aktiv nur, wenn _newCount > 0
       floatingActionButton: FloatingActionButton(
         onPressed: (_newCount > 0) ? () => _updateCount(context) : null,
         backgroundColor: fabColor,
