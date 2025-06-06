@@ -88,33 +88,6 @@ class _WidgetListState extends State<WidgetList> {
     _saveWidgetNames();
   }
 
-  void _showDeleteConfirmationDialog(BuildContext context, String name) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Löschen bestätigen'),
-          content: Text('Bist du dir sicher, dass du "$name" löschen möchtest?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Abbrechen'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _removeWidget(name);
-              },
-              child: const Text('Löschen'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _removeWidget(String name) {
     setState(() {
       _widgetNames.remove(name);
@@ -276,6 +249,32 @@ class _WidgetListState extends State<WidgetList> {
     }
   }
 
+  Future<bool?> _confirmDelete(BuildContext context, String name) {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Löschen bestätigen'),
+          content: Text('Bist du dir sicher, dass du "$name" löschen möchtest?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Abbrechen'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Löschen'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -299,19 +298,36 @@ class _WidgetListState extends State<WidgetList> {
         itemCount: _widgetNames.length,
         itemBuilder: (BuildContext context, int index) {
           final String name = _widgetNames[index];
-          return ListTile(
-            title: Text(name),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => WidgetCreator(name: name),
-                ),
-              );
+          return Dismissible(
+            key: Key(name),
+            direction: DismissDirection.endToStart,
+            confirmDismiss: (DismissDirection direction) async {
+              final bool? confirmed = await _confirmDelete(context, name);
+              return confirmed ?? false;
             },
-            trailing: IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _showDeleteConfirmationDialog(context, name),
+            onDismissed: (direction) {
+              _removeWidget(name);
+            },
+            background: Container(), // leer, da nur endToStart erlaubt
+            secondaryBackground: Container(
+              color: Colors.red,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20.0),
+              child: const Icon(
+                Icons.delete,
+                color: Colors.white,
+              ),
+            ),
+            child: ListTile(
+              title: Text(name),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WidgetCreator(name: name),
+                  ),
+                );
+              },
             ),
           );
         },
