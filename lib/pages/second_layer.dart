@@ -77,39 +77,6 @@ class _WidgetCreatorState extends State<WidgetCreator> {
     );
   }
 
-  Future<void> _showDeleteConfirmationDialogSubWidget(
-      BuildContext context, String fullName) async {
-    final stallLabel = fullName.split("#")[1];
-    // Bei Bedarf manuelle Löschung über Dialog (optional, da Swipe-Dismiss vorhanden)
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Löschen bestätigen'),
-          content:
-          Text('Bist du dir sicher, dass du "$stallLabel" löschen möchtest?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
-              child: const Text('Abbrechen'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              child: const Text('Löschen'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed == true) {
-      _removeSubWidget(fullName);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
