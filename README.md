@@ -17,8 +17,8 @@ Die App kann derzeit nur als Android APK heruntergeladen werden. Klicke [hier](h
 Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der [Lizenzdatei](https://github.com/PhilippIcking/tier_monitor/blob/5196d9d84f6b55aa58a105c688df87de130b9e85/LICENSE).
 
 ### Screenshots
-<img src="readme_files%2FScreenshot 2025-06-08 174621.png" width="260" height="538"/>&nbsp;<img src="readme_files%2FIMG_20240328_230154.jpg" width="260" height="538"/>&nbsp;&nbsp;<img src="readme_files%2FIMG_20240328_230241.jpg" width="260" height="538"/><br></br>
-<img src="readme_files%2FIMG_20240329_171607.jpg" width="260" height="538"/>&nbsp;<img src="readme_files%2FIMG_20240329_171617.jpg" width="260" height="538"/>&nbsp;&nbsp;<img src="readme_files%2FIMG_20240329_171628.jpg" width="260" height="538"/><br></br>
+<img src="readme_files%2FScreenshot 2025-06-08 174621.png" width="260" height="538"/>&nbsp;<img src="readme_files%2FScreenshot 2025-06-08 174654.png" width="260" height="538"/>&nbsp;&nbsp;<img src="readme_files%2FScreenshot 2025-06-08 174802.png" width="260" height="538"/><br></br>
+<img src="readme_files%2FScreenshot 2025-06-08 175150.png" width="260" height="538"/>&nbsp;<img src="readme_files%2FScreenshot 2025-06-08 181303.png" width="260" height="538"/>&nbsp;&nbsp;<img src="readme_files%2FScreenshot 2025-06-08 174548.png" width="260" height="538"/><br></br>
 
 ### Probleme und Feedback
 Melde Probleme oder gib Feedback auf der [Issue-Tracker-Seite](https://github.com/PhilippIcking/tier_monitor/issues).
