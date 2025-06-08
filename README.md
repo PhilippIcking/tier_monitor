@@ -2,10 +2,12 @@
 
 [![made-with-python](https://img.shields.io/badge/Made%20With-Flutter-blue)](https://flutter.dev/)
 
-Tier Monitor ist eine Open-Source-App, mit der Tierbewegungen und -behandlungen einfach digitalisiert werden können. Die App ermöglicht es, Syntome, Medikationen und Tierbewegungen einzugeben, zu speichern und als Excel-Datei zu exportieren. Alle Daten werden lokal auf dem Gerät gespeichert.
+Tier Monitor ist eine Open-Source-App, mit der sich Tierbewegungen und Bestandsverläufe ganz einfach digitalisieren lassen.
+Die App ermöglicht es, Symptome, Medikationen und Tierbewegungen zu erfassen und diese entweder als Excel-Datei zu exportieren oder direkt in der App zu analysieren.
+Alle Daten werden ausschließlich lokal auf dem Gerät gespeichert. Bugs und Verbesserungsvorschläge gerne unter tiermonitor@icking-schmauck.de
 
 ### Installation
-Die App kann derzeit nur als Android APK heruntergeladen werden. Klicke [hier](https://github.com/PhilippIcking/tier_monitor/tree/b007b43840aab4a03437569bb5a52ddc6e4e1583/Android_APK), um zur neuesten Version zu gelangen. Alternativ eine E-Mail an tiermonitor@icking-schmauck.de senden, um zur closed beta der im Play Store eingeladen zu werden. Wenn sich die closed beta mit ausreichend Teilnehmern beendet ist, kann die App im Play Store veröffentlicht werden.
+Die App kann [hier](https://play.google.com/store/apps/details?id=de.icking_schmauck.tier_monitor&pcampaignid=web_share) im Playstore heruntergeladen werden. Alternativ [hier](https://github.com/PhilippIcking/tier_monitor/tree/master/android_APK), für die Android-APK.
 
 ### Anleitung
 1. Lade die APK-Datei herunter und installiere sie auf deinem Android-Gerät.
