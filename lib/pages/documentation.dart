@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:convert';
 
 class Tiermassnahme extends StatefulWidget {
   final String stallname;
@@ -21,10 +22,13 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
   DateTime selectedDate = DateTime.now();
 
   String _selectedBucht = '';
-  String _selectedSymptom = '';
-  String _selectedMedikament = '';
   String _selectedFarbe = '';
   String _selectedComment = '';
+
+  List<String> _selectedSymptome = [];
+  List<String> _selectedMedikamente = [];
+  String? _dropdownSymptomValue;
+  String? _dropdownMedikamentValue;
 
   @override
   void initState() {
@@ -34,11 +38,11 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    _buchten = prefs.getStringList('buchten') ?? ['Gehe zu Einstellungen'];
-    _symptome = prefs.getStringList('symptoms') ?? ['Gehe zu Einstellungen'];
+    _buchten = prefs.getStringList('buchten') ?? List.generate(16, (i) => (i + 1).toString());
+    _symptome = prefs.getStringList('symptoms') ?? [];
     _medikamente =
-        prefs.getStringList('medications') ?? ['Gehe zu Einstellungen'];
-    _farben = prefs.getStringList('farben') ?? ['Gehe zu Einstellungen'];
+        prefs.getStringList('medications') ?? [];
+    _farben = prefs.getStringList('farben') ?? ['Rot', 'Grün', 'Blau'];
 
     setState(() {});
   }
@@ -59,8 +63,8 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
 
   Future<void> _speichern(BuildContext context) async {
     final bucht = _selectedBucht;
-    final symptome = _selectedSymptom;
-    final medikament = _selectedMedikament;
+    final symptome = jsonEncode(_selectedSymptome);
+    final medikamente = jsonEncode(_selectedMedikamente);
     final farbe = _selectedFarbe;
     final comment = _selectedComment;
     final date = selectedDate.toString();
@@ -72,7 +76,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
       'stallname': widget.stallname,
       'bucht': bucht,
       'symptome': symptome,
-      'medikament': medikament,
+      'medikament': medikamente,
       'farbe': farbe,
       'comment': comment,
       'date': date,
@@ -124,7 +128,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
       _symptome.add(newSymptom);
       await prefs.setStringList('symptoms', _symptome);
       setState(() {
-        _selectedSymptom = newSymptom;
+        _selectedSymptome.add(newSymptom);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -170,7 +174,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
       _medikamente.add(newMedikament);
       await prefs.setStringList('medications', _medikamente);
       setState(() {
-        _selectedMedikament = newMedikament;
+        _selectedMedikamente.add(newMedikament);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,7 +208,6 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Dropdown für Bucht
                   DropdownButtonFormField(
                     value: _selectedBucht.isNotEmpty ? _selectedBucht : null,
                     items: _buchten
@@ -226,84 +229,156 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                   ),
                   const Divider(height: 32),
 
-                  DropdownButtonFormField<String>(
-                    value: _selectedSymptom.isNotEmpty ? _selectedSymptom : null,
-                    items: [
-                      ..._symptome.map(
-                            (symptom) => DropdownMenuItem(
-                          value: symptom,
-                          child: Text(symptom),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Symptome',
+                          border: OutlineInputBorder(),
+                          floatingLabelBehavior:
+                          FloatingLabelBehavior.always,
                         ),
-                      ),
-                      const DropdownMenuItem<String>(
-                        value: '__add_new_symptom__',
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.add, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('Neues Symptom hinzufügen'),
+                            if (_selectedSymptome.isNotEmpty)
+                              Wrap(
+                                spacing: 8.0,
+                                runSpacing: 4.0,
+                                children: _selectedSymptome.map((symptom) {
+                                  return Chip(
+                                    label: Text(symptom),
+                                    deleteIcon: const Icon(Icons.close),
+                                    onDeleted: () {
+                                      setState(() {
+                                        _selectedSymptome.remove(symptom);
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            DropdownButton<String>(
+                              value: _dropdownSymptomValue,
+                              isExpanded: true,
+                              underline: Container(),
+                              items: [
+                                ..._symptome.map(
+                                      (symptom) => DropdownMenuItem(
+                                    value: symptom,
+                                    child: Text(symptom),
+                                  ),
+                                ),
+                                const DropdownMenuItem<String>(
+                                  value: '__add_new_symptom__',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.add, color: Colors.blue),
+                                      SizedBox(width: 8),
+                                      Text('Neues Symptom hinzufügen'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) async {
+                                if (value == null) return;
+
+                                if (value == '__add_new_symptom__') {
+                                  await _addNewSymptom(context);
+                                } else if (!_selectedSymptome.contains(value)) {
+                                  setState(() {
+                                    _selectedSymptome.add(value);
+                                  });
+                                }
+
+                                setState(() {
+                                  _dropdownSymptomValue = null;
+                                });
+                              },
+                            ),
                           ],
                         ),
                       ),
                     ],
-                    decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelText: 'Symptom',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (newValue) async {
-                      if (newValue == '__add_new_symptom__') {
-                        await _addNewSymptom(context);
-                      } else {
-                        setState(() {
-                          _selectedSymptom = newValue ?? '';
-                        });
-                      }
-                    },
                   ),
                   const Divider(height: 32),
 
-                  // Dropdown für Medikament mit Schnell-Hinzufügen
-                  DropdownButtonFormField<String>(
-                    value: _selectedMedikament.isNotEmpty
-                        ? _selectedMedikament
-                        : null,
-                    items: [
-                      ..._medikamente.map(
-                            (medikament) => DropdownMenuItem(
-                          value: medikament,
-                          child: Text(medikament),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Behandlung',
+                          border: OutlineInputBorder(),
+                          floatingLabelBehavior:
+                          FloatingLabelBehavior.always,
                         ),
-                      ),
-                      const DropdownMenuItem<String>(
-                        value: '__add_new_medikament__',
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.add, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text('Neues Medikament hinzufügen'),
+                            if (_selectedMedikamente.isNotEmpty)
+                              Wrap(
+                                spacing: 8.0,
+                                runSpacing: 4.0,
+                                children:
+                                _selectedMedikamente.map((medikament) {
+                                  return Chip(
+                                    label: Text(medikament),
+                                    deleteIcon: const Icon(Icons.close),
+                                    onDeleted: () {
+                                      setState(() {
+                                        _selectedMedikamente.remove(medikament);
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            DropdownButton<String>(
+                              value: _dropdownMedikamentValue,
+                              isExpanded: true,
+                              underline: Container(),
+                              items: [
+                                ..._medikamente.map(
+                                      (medikament) => DropdownMenuItem(
+                                    value: medikament,
+                                    child: Text(medikament),
+                                  ),
+                                ),
+                                const DropdownMenuItem<String>(
+                                  value: '__add_new_medikament__',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.add, color: Colors.green),
+                                      SizedBox(width: 8),
+                                      Text('Neues Medikament hinzufügen'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) async {
+                                if (value == null) return;
+
+                                if (value == '__add_new_medikament__') {
+                                  await _addNewMedikament(context);
+                                } else if (!_selectedMedikamente
+                                    .contains(value)) {
+                                  setState(() {
+                                    _selectedMedikamente.add(value);
+                                  });
+                                }
+
+                                setState(() {
+                                  _dropdownMedikamentValue = null;
+                                });
+                              },
+                            ),
                           ],
                         ),
                       ),
                     ],
-                    decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelText: 'Medikament',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (newValue) async {
-                      if (newValue == '__add_new_medikament__') {
-                        await _addNewMedikament(context);
-                      } else {
-                        setState(() {
-                          _selectedMedikament = newValue ?? '';
-                        });
-                      }
-                    },
                   ),
                   const Divider(height: 32),
 
-                  // Dropdown für Farbe
                   DropdownButtonFormField(
                     value: _selectedFarbe.isNotEmpty ? _selectedFarbe : null,
                     items: _farben
@@ -314,7 +389,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                         .toList(),
                     decoration: const InputDecoration(
                       floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelText: 'Farbe',
+                      labelText: 'Makierung',
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (newValue) {
@@ -328,7 +403,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                   TextFormField(
                     decoration: const InputDecoration(
                       floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelText: 'Zusatz (optional)',
+                      labelText: 'Kommentar',
                       border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(fontSize: 18),
@@ -343,7 +418,6 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                   ),
                   const Divider(height: 32),
 
-                  // Datumsauswahl
                   ListTile(
                     leading: const Icon(Icons.calendar_today, size: 28),
                     title: Text(

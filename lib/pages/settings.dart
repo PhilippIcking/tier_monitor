@@ -37,17 +37,15 @@ class _SettingsPageState extends State<SettingsPage>
   Future<void> _loadAll() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Symptome: default ["Husten"]
     _symptoms = prefs.getStringList('symptoms') ?? [];
     if (_symptoms.isEmpty) {
-      _symptoms = ['Beispiel Symtom'];
+      _symptoms = [];
       await prefs.setStringList('symptoms', _symptoms);
     }
 
-    // Medikamente: default ["Hustensaft"]
     _medications = prefs.getStringList('medications') ?? [];
     if (_medications.isEmpty) {
-      _medications = ['Beispiel Medikament'];
+      _medications = [];
       await prefs.setStringList('medications', _medications);
     }
 

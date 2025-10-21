@@ -15,10 +15,11 @@ class EntryPageSecondMedikation extends StatefulWidget {
 }
 
 class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
-  String _selectedMedikament = '';
+  List<String> _medikamente = [];
+  List<String> _selectedMedikamente = [];
   String _selectedComment = '';
   DateTime selectedDate = DateTime.now();
-  List<String> _medikamente = [];
+  String? _dropdownMedikamentValue;
 
   @override
   void initState() {
@@ -47,15 +48,59 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
     }
   }
 
+  Future<void> _addNewMedication(BuildContext context) async {
+    final TextEditingController controller = TextEditingController();
+    final prefs = await SharedPreferences.getInstance();
+
+    final String? newMedikament = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Neues Medikament hinzufügen'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Medikament eingeben...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) Navigator.pop(context, text);
+            },
+            child: const Text('Hinzufügen'),
+          ),
+        ],
+      ),
+    );
+
+    if (newMedikament != null && newMedikament.isNotEmpty) {
+      _medikamente.add(newMedikament);
+      await prefs.setStringList('medications', _medikamente);
+      setState(() {
+        _selectedMedikamente.add(newMedikament);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Medikament "$newMedikament" hinzugefügt')),
+      );
+    }
+  }
+
   Future<void> updateEntry(
-      int entryId, String field, String value, DateTime date) async {
+      int entryId, String field, List<String> values, DateTime date) async {
     var databasesPath = await getDatabasesPath();
     String path = join(databasesPath, 'my_database.db');
     Database database = await openDatabase(path);
+
     await database.update(
       'tierdoku',
       {
-        field: value,
+        field: values.join(', '),
         '${field.split("_")[0]}_date': date.toString(),
       },
       where: 'id = ?',
@@ -75,37 +120,79 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            DropdownButtonFormField(
-              value: _selectedMedikament.isNotEmpty ? _selectedMedikament : null,
-              items: _medikamente
-                  .map((med) => DropdownMenuItem(
-                value: med,
-                child: Text(med),
-              ))
-                  .toList(),
+            InputDecorator(
               decoration: const InputDecoration(
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelText: 'Medikament',
-                hintText: 'keine',
+                labelText: 'Behandlung',
                 border: OutlineInputBorder(),
+                floatingLabelBehavior: FloatingLabelBehavior.always,
               ),
-              onChanged: (newValue) {
-                setState(() {
-                  _selectedMedikament = newValue.toString();
-                });
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_selectedMedikamente.isNotEmpty)
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 4.0,
+                      children: _selectedMedikamente.map((medikament) {
+                        return Chip(
+                          label: Text(medikament),
+                          deleteIcon: const Icon(Icons.close),
+                          onDeleted: () {
+                            setState(() {
+                              _selectedMedikamente.remove(medikament);
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  DropdownButton<String>(
+                    value: _dropdownMedikamentValue,
+                    isExpanded: true,
+                    underline: Container(),
+                    items: [
+                      ..._medikamente.map((medikament) => DropdownMenuItem(
+                        value: medikament,
+                        child: Text(medikament),
+                      )),
+                      const DropdownMenuItem<String>(
+                        value: '__add_new_medikament__',
+                        child: Row(
+                          children: [
+                            Icon(Icons.add, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text('Neues Medikament hinzufügen'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) async {
+                      if (value == null) return;
+                      if (value == '__add_new_medikament__') {
+                        await _addNewMedication(context);
+                      } else if (!_selectedMedikamente.contains(value)) {
+                        setState(() {
+                          _selectedMedikamente.add(value);
+                        });
+                      }
+                      setState(() {
+                        _dropdownMedikamentValue = null;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16.0),
             TextFormField(
               decoration: const InputDecoration(
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelText: 'Zusatz',
-                hintText: 'Kommentar (optional)',
+                labelText: 'Kommentar',
                 border: OutlineInputBorder(),
               ),
+              minLines: 2,
+              maxLines: 5,
               onChanged: (val) {
                 setState(() {
-                  _selectedComment = val.toString();
+                  _selectedComment = val;
                 });
               },
             ),
@@ -121,8 +208,8 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          updateEntry(widget.entryId, 'second_medikament', _selectedMedikament, selectedDate);
-          updateEntry(widget.entryId, 'second_comment', _selectedComment, selectedDate);
+          updateEntry(widget.entryId, 'second_medikament', _selectedMedikamente, selectedDate);
+          updateEntry(widget.entryId, 'second_comment', [_selectedComment], selectedDate);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Zweitmedikation gespeichert')),
           );
@@ -146,10 +233,11 @@ class EntryPageThirdMedikation extends StatefulWidget {
 }
 
 class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
-  String _selectedMedikament = '';
+  List<String> _medikamente = [];
+  List<String> _selectedMedikamente = [];
   String _selectedComment = '';
   DateTime selectedDate = DateTime.now();
-  List<String> _medikamente = [];
+  String? _dropdownMedikamentValue;
 
   @override
   void initState() {
@@ -171,22 +259,66 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    if(picked != null && picked != selectedDate) {
+    if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
       });
     }
   }
 
+  Future<void> _addNewMedication(BuildContext context) async {
+    final TextEditingController controller = TextEditingController();
+    final prefs = await SharedPreferences.getInstance();
+
+    final String? newMedikament = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Neues Medikament hinzufügen'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Medikament eingeben...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) Navigator.pop(context, text);
+            },
+            child: const Text('Hinzufügen'),
+          ),
+        ],
+      ),
+    );
+
+    if (newMedikament != null && newMedikament.isNotEmpty) {
+      _medikamente.add(newMedikament);
+      await prefs.setStringList('medications', _medikamente);
+      setState(() {
+        _selectedMedikamente.add(newMedikament);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Medikament "$newMedikament" hinzugefügt')),
+      );
+    }
+  }
+
   Future<void> updateEntry(
-      int entryId, String field, String value, DateTime date) async {
+      int entryId, String field, List<String> values, DateTime date) async {
     var databasesPath = await getDatabasesPath();
     String path = join(databasesPath, 'my_database.db');
     Database database = await openDatabase(path);
+
     await database.update(
       'tierdoku',
       {
-        field: value,
+        field: values.join(', '),
         '${field.split("_")[0]}_date': date.toString(),
       },
       where: 'id = ?',
@@ -206,37 +338,79 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            DropdownButtonFormField(
-              value: _selectedMedikament.isNotEmpty ? _selectedMedikament : null,
-              items: _medikamente
-                  .map((med) => DropdownMenuItem(
-                value: med,
-                child: Text(med),
-              ))
-                  .toList(),
+            InputDecorator(
               decoration: const InputDecoration(
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelText: 'Medikament',
-                hintText: 'keine',
+                labelText: 'Behandlung',
                 border: OutlineInputBorder(),
+                floatingLabelBehavior: FloatingLabelBehavior.always,
               ),
-              onChanged: (newValue) {
-                setState(() {
-                  _selectedMedikament = newValue.toString();
-                });
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_selectedMedikamente.isNotEmpty)
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 4.0,
+                      children: _selectedMedikamente.map((medikament) {
+                        return Chip(
+                          label: Text(medikament),
+                          deleteIcon: const Icon(Icons.close),
+                          onDeleted: () {
+                            setState(() {
+                              _selectedMedikamente.remove(medikament);
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  DropdownButton<String>(
+                    value: _dropdownMedikamentValue,
+                    isExpanded: true,
+                    underline: Container(),
+                    items: [
+                      ..._medikamente.map((medikament) => DropdownMenuItem(
+                        value: medikament,
+                        child: Text(medikament),
+                      )),
+                      const DropdownMenuItem<String>(
+                        value: '__add_new_medikament__',
+                        child: Row(
+                          children: [
+                            Icon(Icons.add, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text('Neues Medikament hinzufügen'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) async {
+                      if (value == null) return;
+                      if (value == '__add_new_medikament__') {
+                        await _addNewMedication(context);
+                      } else if (!_selectedMedikamente.contains(value)) {
+                        setState(() {
+                          _selectedMedikamente.add(value);
+                        });
+                      }
+                      setState(() {
+                        _dropdownMedikamentValue = null;
+                      });
+                    },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16.0),
             TextFormField(
               decoration: const InputDecoration(
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                labelText: 'Zusatz',
-                hintText: 'Kommentar (optional)',
+                labelText: 'Kommentar',
                 border: OutlineInputBorder(),
               ),
+              minLines: 2,
+              maxLines: 5,
               onChanged: (val) {
                 setState(() {
-                  _selectedComment = val.toString();
+                  _selectedComment = val;
                 });
               },
             ),
@@ -252,8 +426,8 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          updateEntry(widget.entryId, 'third_medikament', _selectedMedikament, selectedDate);
-          updateEntry(widget.entryId, 'third_comment', _selectedComment, selectedDate);
+          updateEntry(widget.entryId, 'third_medikament', _selectedMedikamente, selectedDate);
+          updateEntry(widget.entryId, 'third_comment', [_selectedComment], selectedDate);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Drittmedikation gespeichert')),
           );

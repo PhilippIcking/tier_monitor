@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart'; //Android, IOS, MACOS
 import 'package:path/path.dart';
+import 'dart:convert';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -52,6 +53,16 @@ class _HistoryPageState extends State<HistoryPage> {
     await _fetchEntriesFromDatabase();
 
     await database.close();
+  }
+
+  String formatJsonList(String? jsonString) {
+    if (jsonString == null || jsonString.isEmpty) return "";
+    try {
+      final List<dynamic> list = jsonDecode(jsonString);
+      return list.join(", ");
+    } catch (e) {
+      return jsonString; // fallback falls kein JSON
+    }
   }
 
   @override
@@ -124,7 +135,7 @@ class _HistoryPageState extends State<HistoryPage> {
               child: Text(
                 "${_entries[index]['stallname']}".split("#")[1] +
                     (_currentTable == 'tierdoku'
-                        ? " - Bucht: ${_entries[index]['bucht']} ${_entries[index]['farbe']} ${_entries[index]['symptome']}"
+                        ? " - Bucht: ${_entries[index]['bucht']} ${_entries[index]['farbe']} ${formatJsonList(_entries[index]['symptome'])}"
                         : " - ${_entries[index]['date'].toString().substring(0, 10)}, ${_entries[index]['zugang_abgang']}: ${_entries[index]['anzahl']}"),
               ),
             ),
@@ -140,12 +151,12 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               if (_entries[index]['symptome'] != null)
                 ListTile(
-                  title: Text("Symptom: ${_entries[index]['symptome']}"),
+                  title: Text("Symptome: ${formatJsonList(_entries[index]['symptome'])}"),
                 ),
+
               if (_entries[index]['medikament'] != null)
                 ListTile(
-                  title:
-                  Text("Erstmedikation: ${_entries[index]['medikament']}"),
+                  title: Text("Erstmedikation: ${formatJsonList(_entries[index]['medikament'])}"),
                 ),
               if (_entries[index]['farbe'] != null)
                 ListTile(
@@ -172,8 +183,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               if (_entries[index]['second_medikament'] != null)
                 ListTile(
-                  title: Text(
-                      "Zweitmedikation: ${_entries[index]['second_medikament']}"),
+                  title: Text("Zweitmedikation: ${formatJsonList(_entries[index]['second_medikament'])}"),
                 ),
               if (_entries[index]['second_date'] != null)
                 ListTile(
@@ -188,8 +198,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               if (_entries[index]['third_medikament'] != null)
                 ListTile(
-                  title: Text(
-                      "Drittmedikation: ${_entries[index]['third_medikament']}"),
+                  title: Text("Drittmedikation: ${formatJsonList(_entries[index]['third_medikament'])}"),
                 ),
               if (_entries[index]['third_date'] != null)
                 ListTile(
