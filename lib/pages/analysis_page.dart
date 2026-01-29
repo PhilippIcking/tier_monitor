@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -15,9 +15,10 @@ class AnalysisPage extends StatefulWidget {
 class _AnalysisPageState extends State<AnalysisPage> {
   late Database _db;
 
-  /// Liste möglicher Jahre, in denen Bewegungen/Dokus existieren
-  List<String> _availableYears = [];
-  String _selectedYear = '';
+  /// Verfügbarer Datumsbereich aus Bewegungen/Dokus
+  DateTime? _minDate;
+  DateTime? _maxDate;
+  DateTimeRange? _selectedRange;
 
   /// Liste aller Betriebe
   List<String> _allBetriebe = [];
@@ -48,11 +49,11 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
     // 1) Datenbank öffnen
     var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
+    String path = p.join(databasesPath, 'my_database.db');
     _db = await openDatabase(path);
 
-    // 2) Mögliche Jahre ermitteln
-    await _loadAvailableYears();
+    // 2) Verfügbaren Datumsbereich ermitteln
+    await _loadAvailableDateRange();
 
     // 3) Betriebe und Ställe laden
     await _loadBetriebeUndStalls();
@@ -61,8 +62,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
     await _loadSymptomsAndMedications();
 
     setState(() {
-      if (_availableYears.isNotEmpty) {
-        _selectedYear = _availableYears.first;
+      if (_minDate != null && _maxDate != null) {
+        _selectedRange = DateTimeRange(start: _minDate!, end: _maxDate!);
       }
       if (_allBetriebe.isNotEmpty) {
         _selectedBetrieb = _allBetriebe.first;
@@ -71,28 +72,31 @@ class _AnalysisPageState extends State<AnalysisPage> {
     });
   }
 
-  // Lädt alle Jahre, in denen tierbewegungen oder tierdoku einen Eintrag haben.
-  Future<void> _loadAvailableYears() async {
+  // Lädt den Datumsbereich, in dem tierbewegungen oder tierdoku Einträge haben.
+  Future<void> _loadAvailableDateRange() async {
     final rawMoves = await _db.query('tierbewegungen');
     final rawDoku = await _db.query('tierdoku');
 
-    Set<String> years = {};
+    DateTime? minDate;
+    DateTime? maxDate;
 
     for (var row in rawMoves) {
       String? dateStr = row['date'] as String?;
-      if (dateStr != null && dateStr.length >= 4) {
-        years.add(dateStr.substring(0, 4));
-      }
+      final dt = _parseDate(dateStr);
+      if (dt == null) continue;
+      minDate = (minDate == null || dt.isBefore(minDate)) ? dt : minDate;
+      maxDate = (maxDate == null || dt.isAfter(maxDate)) ? dt : maxDate;
     }
     for (var row in rawDoku) {
       String? dateStr = row['date'] as String?;
-      if (dateStr != null && dateStr.length >= 4) {
-        years.add(dateStr.substring(0, 4));
-      }
+      final dt = _parseDate(dateStr);
+      if (dt == null) continue;
+      minDate = (minDate == null || dt.isBefore(minDate)) ? dt : minDate;
+      maxDate = (maxDate == null || dt.isAfter(maxDate)) ? dt : maxDate;
     }
 
-    final sorted = years.toList()..sort();
-    _availableYears = sorted;
+    _minDate = minDate;
+    _maxDate = maxDate;
   }
 
   // Lädt alle Betriebe+Ställe aus stallname ("Betrieb#Stall")
@@ -137,12 +141,13 @@ class _AnalysisPageState extends State<AnalysisPage> {
   }
 
   /// Ermittelt den Verlauf der Tierzahlen (tierbestand) aus tierbewegungen
-  /// für einen Stall und ein gegebenes Jahr. Das Ergebnis ist eine Liste
+  /// für einen Stall und einen gegebenen Datumsbereich. Das Ergebnis ist eine Liste
   /// (Datum -> Tierbestand).
   Future<List<_TimeSeriesInt>> _fetchTierbestandForStall(
       String betrieb,
       String stall,
-      String year,
+      DateTime startDate,
+      DateTime endDate,
       ) async {
     String full = '$betrieb#$stall';
     final rows = await _db.query(
@@ -154,46 +159,40 @@ class _AnalysisPageState extends State<AnalysisPage> {
     List<_TimeSeriesInt> result = [];
     for (var row in rows) {
       String? dateStr = row['date'] as String?;
-      if (dateStr == null || dateStr.length < 10) continue;
-      if (dateStr.substring(0, 4) != year) continue;
+      final dt = _parseDate(dateStr);
+      if (dt == null) continue;
+      if (dt.isBefore(startDate) || dt.isAfter(endDate)) continue;
 
       final tierbestand = row['tierbestand'] as int?;
       if (tierbestand == null) continue;
 
-      final y = int.parse(dateStr.substring(0, 4));
-      final m = int.parse(dateStr.substring(5, 7));
-      final d = int.parse(dateStr.substring(8, 10));
-
-      result.add(_TimeSeriesInt(DateTime(y, m, d), tierbestand));
+      result.add(_TimeSeriesInt(dt, tierbestand));
     }
     result.sort((a, b) => a.time.compareTo(b.time));
     return result;
   }
 
   Future<List<_TimeSeriesInt>> _fetchTierbestandForStallWithCarryForward(
-      String betrieb, String stall, String year) async {
-    List<_TimeSeriesInt> rawData = await _fetchTierbestandForStall(betrieb, stall, year);
-    final int yearInt = int.parse(year);
-    final DateTime startOfYear = DateTime(yearInt, 1, 1);
-    final DateTime endOfYear = DateTime(yearInt, 12, 31);
+      String betrieb, String stall, DateTime startDate, DateTime endDate) async {
+    List<_TimeSeriesInt> rawData = await _fetchTierbestandForStall(betrieb, stall, startDate, endDate);
 
     List<_TimeSeriesInt> extendedList = [];
-    if (rawData.isEmpty || rawData.first.time.isAfter(startOfYear)) {
-      int prevValue = await _fetchPreviousYearValue(betrieb, stall, year);
-      extendedList.add(_TimeSeriesInt(startOfYear, prevValue));
+    if (rawData.isEmpty || rawData.first.time.isAfter(startDate)) {
+      int prevValue = await _fetchPreviousValueBeforeDate(betrieb, stall, startDate);
+      extendedList.add(_TimeSeriesInt(startDate, prevValue));
     }
     extendedList.addAll(rawData);
-    if (extendedList.isEmpty || extendedList.last.time.isBefore(endOfYear)) {
+    if (extendedList.isEmpty || extendedList.last.time.isBefore(endDate)) {
       int lastValue = extendedList.isNotEmpty
           ? extendedList.last.value
-          : await _fetchPreviousYearValue(betrieb, stall, year);
-      extendedList.add(_TimeSeriesInt(endOfYear, lastValue));
+          : await _fetchPreviousValueBeforeDate(betrieb, stall, startDate);
+      extendedList.add(_TimeSeriesInt(endDate, lastValue));
     }
 
     List<_TimeSeriesInt> dailySeries = [];
     int currentIndex = 0;
     int currentValue = extendedList.first.value;
-    for (DateTime day = startOfYear; !day.isAfter(endOfYear); day = day.add(const Duration(days: 1))) {
+    for (DateTime day = startDate; !day.isAfter(endDate); day = day.add(const Duration(days: 1))) {
       while (currentIndex < extendedList.length && !extendedList[currentIndex].time.isAfter(day)) {
         currentValue = extendedList[currentIndex].value;
         currentIndex++;
@@ -206,27 +205,23 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Future<double> _fetchAverageTierbestandForStall(
       String betrieb,
       String stall,
-      String year,
+      DateTime startDate,
+      DateTime endDate,
       ) async {
-    final list = await _fetchTierbestandForStall(betrieb, stall, year);
-    if (list.isEmpty) return 0.0;
-
-    final int yearInt = int.parse(year);
-    final DateTime startOfYear = DateTime(yearInt, 1, 1);
-    final DateTime endOfYear = DateTime(yearInt, 12, 31);
-    final double totalDuration = endOfYear.difference(startOfYear).inDays.toDouble();
+    final list = await _fetchTierbestandForStall(betrieb, stall, startDate, endDate);
+    final double totalDuration = endDate.difference(startDate).inDays.toDouble();
 
     double weightedSum = 0.0;
 
     List<_TimeSeriesInt> extendedList = [];
-    if (list.first.time.isAfter(startOfYear)) {
-      // Hier holen wir den Wert aus dem Vorjahr anstelle des ersten Eintrags
-      int prevValue = await _fetchPreviousYearValue(betrieb, stall, year);
-      extendedList.add(_TimeSeriesInt(startOfYear, prevValue));
+    if (list.isEmpty || list.first.time.isAfter(startDate)) {
+      // Wert vor Startdatum verwenden
+      int prevValue = await _fetchPreviousValueBeforeDate(betrieb, stall, startDate);
+      extendedList.add(_TimeSeriesInt(startDate, prevValue));
     }
     extendedList.addAll(list);
-    if (list.last.time.isBefore(endOfYear)) {
-      extendedList.add(_TimeSeriesInt(endOfYear, list.last.value));
+    if (extendedList.isNotEmpty && extendedList.last.time.isBefore(endDate)) {
+      extendedList.add(_TimeSeriesInt(endDate, extendedList.last.value));
     }
 
     for (int i = 0; i < extendedList.length - 1; i++) {
@@ -236,17 +231,20 @@ class _AnalysisPageState extends State<AnalysisPage> {
       weightedSum += current.value * duration;
     }
 
+    if (totalDuration == 0) {
+      return extendedList.isNotEmpty ? extendedList.first.value.toDouble() : 0.0;
+    }
     return weightedSum / totalDuration;
   }
 
-  Future<int> _fetchPreviousYearValue(String betrieb, String stall, String year) async {
-    final int yearInt = int.parse(year);
-    final DateTime startOfYear = DateTime(yearInt, 1, 1);
+  Future<int> _fetchPreviousValueBeforeDate(
+      String betrieb, String stall, DateTime startDate) async {
     final String fullName = '$betrieb#$stall';
+    final String startStr = _dateOnlyString(startDate);
     final prevRows = await _db.query(
       'tierbewegungen',
       where: 'stallname = ? AND date < ?',
-      whereArgs: [fullName, startOfYear.toIso8601String()],
+      whereArgs: [fullName, startStr],
       orderBy: 'date DESC',
       limit: 1,
     );
@@ -260,26 +258,26 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   Future<List<_TimeSeriesInt>> _fetchTierbestandForBetrieb(
       String betrieb,
-      String year,
+      DateTime startDate,
+      DateTime endDate,
       ) async {
     final stalls = _betriebStalls[betrieb] ?? [];
-    final int yearInt = int.parse(year);
-    final DateTime startOfYear = DateTime(yearInt, 1, 1);
-    final DateTime endOfYear = DateTime(yearInt, 12, 31);
     List<_TimeSeriesInt> result = [];
 
     Map<String, List<_TimeSeriesInt>> stallDataMap = {};
+    Map<String, int> prevValueMap = {};
     for (var stall in stalls) {
-      stallDataMap[stall] = await _fetchTierbestandForStall(betrieb, stall, year);
+      stallDataMap[stall] = await _fetchTierbestandForStall(betrieb, stall, startDate, endDate);
+      prevValueMap[stall] = await _fetchPreviousValueBeforeDate(betrieb, stall, startDate);
     }
 
-    for (DateTime day = startOfYear; !day.isAfter(endOfYear); day = day.add(const Duration(days: 1))) {
+    for (DateTime day = startDate; !day.isAfter(endDate); day = day.add(const Duration(days: 1))) {
       int sum = 0;
       for (var stall in stalls) {
         final stallData = stallDataMap[stall] ?? [];
         int stallValue = 0;
         if (stallData.isEmpty || stallData.first.time.isAfter(day)) {
-          stallValue = await _fetchPreviousYearValue(betrieb, stall, year);
+          stallValue = prevValueMap[stall] ?? 0;
         } else {
           for (var point in stallData) {
             if (point.time.isAfter(day)) break;
@@ -295,25 +293,23 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   Future<double> _fetchAverageTierbestandForBetrieb(
       String betrieb,
-      String year,
+      DateTime startDate,
+      DateTime endDate,
       ) async {
-    final data = await _fetchTierbestandForBetrieb(betrieb, year);
+    final data = await _fetchTierbestandForBetrieb(betrieb, startDate, endDate);
     if (data.isEmpty) return 0.0;
 
-    final int yearInt = int.parse(year);
-    final DateTime startOfYear = DateTime(yearInt, 1, 1);
-    final DateTime endOfYear = DateTime(yearInt, 12, 31);
-    final double totalDuration = endOfYear.difference(startOfYear).inDays.toDouble();
+    final double totalDuration = endDate.difference(startDate).inDays.toDouble();
 
     double weightedSum = 0.0;
 
     List<_TimeSeriesInt> extendedList = [];
-    if (data.first.time.isAfter(startOfYear)) {
-      extendedList.add(_TimeSeriesInt(startOfYear, data.first.value));
+    if (data.first.time.isAfter(startDate)) {
+      extendedList.add(_TimeSeriesInt(startDate, data.first.value));
     }
     extendedList.addAll(data);
-    if (data.last.time.isBefore(endOfYear)) {
-      extendedList.add(_TimeSeriesInt(endOfYear, data.last.value));
+    if (data.last.time.isBefore(endDate)) {
+      extendedList.add(_TimeSeriesInt(endDate, data.last.value));
     }
 
     for (int i = 0; i < extendedList.length - 1; i++) {
@@ -323,6 +319,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
       weightedSum += current.value * duration;
     }
 
+    if (totalDuration == 0) {
+      return extendedList.isNotEmpty ? extendedList.first.value.toDouble() : 0.0;
+    }
     return weightedSum / totalDuration;
   }
 
@@ -330,7 +329,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Future<int> _countDokuEntriesForStall(
       String betrieb,
       String stall,
-      String year,
+      DateTime startDate,
+      DateTime endDate,
       List<String> selectedItems,
       String type,
       ) async {
@@ -346,8 +346,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
     int counter = 0;
     for (var row in rows) {
       final dateStr = row['date'] as String?;
-      if (dateStr == null || dateStr.length < 10) continue;
-      if (dateStr.substring(0, 4) != year) continue;
+      final dt = _parseDate(dateStr);
+      if (dt == null) continue;
+      if (dt.isBefore(startDate) || dt.isAfter(endDate)) continue;
 
       if (type == 'symptom') {
         final sympt = row['symptome'] as String? ?? '';
@@ -376,17 +377,19 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Future<double> _fetchNormalizedCount(
       String betrieb,
       String stall,
-      String year,
+      DateTime startDate,
+      DateTime endDate,
       List<String> items,
       bool isSymptom,
       ) async {
-    double avg = await _fetchAverageTierbestandForStall(betrieb, stall, year);
+    double avg = await _fetchAverageTierbestandForStall(betrieb, stall, startDate, endDate);
     if (avg == 0) return 0.0;
 
     int c = await _countDokuEntriesForStall(
       betrieb,
       stall,
-      year,
+      startDate,
+      endDate,
       items,
       isSymptom ? 'symptom' : 'medikament',
     );
@@ -402,7 +405,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
       );
     }
 
-    if (_availableYears.isEmpty || _allBetriebe.isEmpty) {
+    if (_minDate == null || _maxDate == null || _allBetriebe.isEmpty || _selectedRange == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Analyse')),
         body: const Center(child: Text('Keine Daten oder Tabellen leer.')),
@@ -466,24 +469,40 @@ class _AnalysisPageState extends State<AnalysisPage> {
           children: [
             Text('Filter'),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                const Text('Jahr: '),
-                const SizedBox(width: 16),
-                DropdownButton<String>(
-                  value: _selectedYear,
-                  items: _availableYears
-                      .map((y) => DropdownMenuItem<String>(
-                    value: y,
-                    child: Text(y),
-                  ))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val == null) return;
-                    setState(() {
-                      _selectedYear = val;
-                    });
-                  },
+                _presetButton('Letzte 30 Tage', _rangeLastDays(30)),
+                _presetButton('Letzte 90 Tage', _rangeLastDays(90)),
+                _presetButton('Dieses Jahr', _rangeForYear(DateTime.now().year)),
+                _presetButton('Letztes Jahr', _rangeForYear(DateTime.now().year - 1)),
+                _presetButton('Maximal', _rangeFull()),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Zeitraum: ${_formatRangeLabel(_selectedRange!)}'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      final picked = await showDateRangePicker(
+                        context: context,
+                        firstDate: _minDate!,
+                        lastDate: _maxDate!,
+                        initialDateRange: _selectedRange,
+                      );
+                      if (picked == null) return;
+                      setState(() {
+                        _selectedRange = picked;
+                      });
+                    },
+                    child: const Text('Zeitraum ändern'),
+                  ),
                 ),
               ],
             ),
@@ -577,7 +596,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.data!.isEmpty) {
-          return const Text('Keine Tierbewegungs-Daten für dieses Jahr.');
+          return const Text('Keine Tierbewegungs-Daten für diesen Zeitraum.');
         }
         return Column(children: snapshot.data!);
       },
@@ -587,11 +606,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Future<List<Widget>> _buildLineChartsForStallsAndBetrieb(
       List<String> stalls,
       ) async {
+    final range = _selectedRange!;
     List<Widget> result = [];
 
     // Betrieb gesamt
-    final betriebData = await _fetchTierbestandForBetrieb(_selectedBetrieb, _selectedYear);
-    double avgBetrieb = await _fetchAverageTierbestandForBetrieb(_selectedBetrieb, _selectedYear);
+    final betriebData = await _fetchTierbestandForBetrieb(_selectedBetrieb, range.start, range.end);
+    double avgBetrieb = await _fetchAverageTierbestandForBetrieb(_selectedBetrieb, range.start, range.end);
 
     if (betriebData.isNotEmpty) {
       result.add(
@@ -607,7 +627,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 200,
-                  child: _buildLineChart(betriebData),
+                  child: _buildLineChart(betriebData, range.start, range.end),
                 ),
               ],
             ),
@@ -618,9 +638,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
     // Pro Stall
     for (var stall in stalls) {
-      final data = await _fetchTierbestandForStallWithCarryForward(_selectedBetrieb, stall, _selectedYear);
+      final data = await _fetchTierbestandForStallWithCarryForward(_selectedBetrieb, stall, range.start, range.end);
       if (data.isEmpty) continue;
-      double avgStall = await _fetchAverageTierbestandForStall(_selectedBetrieb, stall, _selectedYear);
+      double avgStall = await _fetchAverageTierbestandForStall(_selectedBetrieb, stall, range.start, range.end);
 
       result.add(
         Card(
@@ -635,7 +655,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 200,
-                  child: _buildLineChart(data),
+                  child: _buildLineChart(data, range.start, range.end),
                 ),
               ],
             ),
@@ -647,19 +667,27 @@ class _AnalysisPageState extends State<AnalysisPage> {
   }
 
   /// Baut ein Liniendiagramm für die gegebene Zeitreihe.
-  Widget _buildLineChart(List<_TimeSeriesInt> data) {
-    final int yearInt = int.parse(_selectedYear);
-    final DateTime startOfYear = DateTime(yearInt, 1, 1);
-    final DateTime endOfYear = DateTime(yearInt, 12, 31);
-    final double maxX = endOfYear.difference(startOfYear).inDays.toDouble();
+  Widget _buildLineChart(List<_TimeSeriesInt> data, DateTime startDate, DateTime endDate) {
+    final double maxX = endDate.difference(startDate).inDays.toDouble();
 
     final List<FlSpot> spots = [];
     final Map<int, DateTime> dateLabels = {};
 
     for (var point in data) {
-      final double x = point.time.difference(startOfYear).inDays.toDouble();
+      final double x = point.time.difference(startDate).inDays.toDouble();
       spots.add(FlSpot(x, point.value.toDouble()));
       dateLabels[x.toInt()] = point.time;
+    }
+
+    final int rangeDays = maxX.toInt();
+    final bool includeYear = false;
+    int step = 1;
+    if (rangeDays > 120) {
+      step = 30;
+    } else if (rangeDays > 40) {
+      step = 14;
+    } else if (rangeDays > 14) {
+      step = 7;
     }
 
     final lineBarsData = [
@@ -671,6 +699,24 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
     return LineChart(
       LineChartData(
+        lineTouchData: LineTouchData(
+          enabled: true,
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (touchedSpot) => Colors.black87,
+            getTooltipItems: (touchedSpots) {
+              return touchedSpots.map((spot) {
+                final int dayOffset = spot.x.round();
+                final DateTime dt = startDate.add(Duration(days: dayOffset));
+                final String dateLabel = _dateOnlyString(dt);
+                final String valueLabel = spot.y.toStringAsFixed(0);
+                return LineTooltipItem(
+                  "$dateLabel\n$valueLabel",
+                  const TextStyle(fontSize: 12, color: Colors.white),
+                );
+              }).toList();
+            },
+          ),
+        ),
         lineBarsData: lineBarsData,
         minX: 0,
         maxX: maxX,
@@ -681,14 +727,16 @@ class _AnalysisPageState extends State<AnalysisPage> {
               showTitles: true,
               getTitlesWidget: (value, meta) {
                 if (value == 0) {
-                  return const Text("01.01", style: TextStyle(fontSize: 10));
+                  return Text(_formatDateLabel(startDate, includeYear: includeYear, yearOnJanOnly: false),
+                      style: const TextStyle(fontSize: 10));
                 } else if (value == maxX) {
-                  return const Text("31.12", style: TextStyle(fontSize: 10));
+                  return Text(_formatDateLabel(endDate, includeYear: includeYear, yearOnJanOnly: false),
+                      style: const TextStyle(fontSize: 10));
                 } else {
-                  final dt = startOfYear.add(Duration(days: value.toInt()));
-                  if (value % 30 == 0) {
+                  final dt = startDate.add(Duration(days: value.toInt()));
+                  if (value % step == 0) {
                     return Text(
-                      "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}",
+                      _formatDateLabel(dt, includeYear: includeYear, yearOnJanOnly: false),
                       style: const TextStyle(fontSize: 10),
                     );
                   }
@@ -696,6 +744,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 }
               },
             ),
+          ),
+          topTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
           ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
@@ -708,9 +759,6 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 );
               },
             ),
-          ),
-          topTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
           ),
           rightTitles: AxisTitles(
             sideTitles: SideTitles(showTitles: false),
@@ -739,7 +787,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.data!.isEmpty) {
-          return const Text('Keine Dokumentations-Daten für dieses Jahr.');
+          return const Text('Keine Dokumentations-Daten für diesen Zeitraum.');
         }
         return Column(children: snapshot.data!);
       },
@@ -749,6 +797,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
   /// Baut pro Stall ein Balkendiagramm, in dem jedes angewählte Symptom und
   /// jedes angewählte Medikament als eigene Säule dargestellt wird.
   Future<List<Widget>> _buildBarChartsForStalls(List<String> stalls) async {
+    final range = _selectedRange!;
     List<Widget> result = [];
 
     for (var stall in stalls) {
@@ -762,7 +811,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
         double normValue = await _fetchNormalizedCount(
           _selectedBetrieb,
           stall,
-          _selectedYear,
+          range.start,
+          range.end,
           [sym],
           true,
         );
@@ -780,7 +830,8 @@ class _AnalysisPageState extends State<AnalysisPage> {
         double normValue = await _fetchNormalizedCount(
           _selectedBetrieb,
           stall,
-          _selectedYear,
+          range.start,
+          range.end,
           [med],
           false,
         );
@@ -809,6 +860,18 @@ class _AnalysisPageState extends State<AnalysisPage> {
                   height: 200,
                   child: BarChart(
                       BarChartData(
+                        barTouchData: BarTouchData(
+                          touchTooltipData: BarTouchTooltipData(
+                            getTooltipColor: (group) => Colors.black87,
+                            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                              final value = rod.toY.toStringAsFixed(2);
+                              return BarTooltipItem(
+                                "$value%",
+                                const TextStyle(fontSize: 12, color: Colors.white),
+                              );
+                            },
+                          ),
+                        ),
                         barGroups: groups,
                         gridData: FlGridData(show: true),
                         titlesData: FlTitlesData(
@@ -863,6 +926,98 @@ class _AnalysisPageState extends State<AnalysisPage> {
       );
     }
     return result;
+  }
+
+  DateTime? _parseDate(String? dateStr) {
+    if (dateStr == null || dateStr.length < 10) return null;
+    final y = int.tryParse(dateStr.substring(0, 4));
+    final m = int.tryParse(dateStr.substring(5, 7));
+    final d = int.tryParse(dateStr.substring(8, 10));
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  String _dateOnlyString(DateTime dt) {
+    final y = dt.year.toString().padLeft(4, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    return "$y-$m-$d";
+  }
+
+  String _formatDateLabel(DateTime dt, {bool includeYear = false, bool yearOnJanOnly = false}) {
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    if (includeYear) {
+      if (yearOnJanOnly && !(dt.month == 1 && dt.day == 1)) {
+        return "$d.$m";
+      }
+      final y = dt.year.toString().padLeft(4, '0');
+      return "$d.$m.$y";
+    }
+    return "$d.$m";
+  }
+
+  String _formatRangeLabel(DateTimeRange range) {
+    final start = _dateOnlyString(range.start);
+    final end = _dateOnlyString(range.end);
+    return "$start bis $end";
+  }
+
+  Widget _presetButton(String label, DateTimeRange? range) {
+    final bool disabled = range == null;
+    final bool active = !disabled && _isSameRange(_selectedRange, range);
+    return OutlinedButton(
+      onPressed: disabled
+          ? null
+          : () {
+              setState(() {
+                _selectedRange = range;
+              });
+            },
+      style: active
+          ? OutlinedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 1.5,
+              ),
+            )
+          : null,
+      child: Text(label),
+    );
+  }
+
+  DateTimeRange? _rangeLastDays(int days) {
+    if (_minDate == null || _maxDate == null) return null;
+    final DateTime end = _maxDate!;
+    final DateTime start = end.subtract(Duration(days: days - 1));
+    final DateTime clampedStart = start.isBefore(_minDate!) ? _minDate! : start;
+    return DateTimeRange(start: clampedStart, end: end);
+  }
+
+  DateTimeRange? _rangeForYear(int year) {
+    if (_minDate == null || _maxDate == null) return null;
+    final DateTime start = DateTime(year, 1, 1);
+    final DateTime end = DateTime(year, 12, 31);
+    if (end.isBefore(_minDate!) || start.isAfter(_maxDate!)) return null;
+    final DateTime clampedStart = start.isBefore(_minDate!) ? _minDate! : start;
+    final DateTime clampedEnd = end.isAfter(_maxDate!) ? _maxDate! : end;
+    return DateTimeRange(start: clampedStart, end: clampedEnd);
+  }
+
+  DateTimeRange? _rangeFull() {
+    if (_minDate == null || _maxDate == null) return null;
+    return DateTimeRange(start: _minDate!, end: _maxDate!);
+  }
+
+  bool _isSameRange(DateTimeRange? a, DateTimeRange? b) {
+    if (a == null || b == null) return false;
+    return a.start.year == b.start.year &&
+        a.start.month == b.start.month &&
+        a.start.day == b.start.day &&
+        a.end.year == b.end.year &&
+        a.end.month == b.end.month &&
+        a.end.day == b.end.day;
   }
 }
 
