@@ -73,6 +73,27 @@ class _HistoryPageSecondMedikationState
     }
   }
 
+  int _medikationCount(Map<String, dynamic> entry) {
+    int count = 0;
+    bool hasValue(String? v) {
+      if (v == null) return false;
+      final trimmed = v.trim();
+      return trimmed.isNotEmpty && trimmed != '[]';
+    }
+
+    if (hasValue(entry['medikament']?.toString())) count++;
+    if (hasValue(entry['second_medikament']?.toString())) count++;
+    if (hasValue(entry['third_medikament']?.toString())) count++;
+    return count;
+  }
+
+  bool _hasVerendung(Map<String, dynamic> entry) {
+    final endDate = entry['end_date']?.toString().trim() ?? '';
+    final endComment = entry['end_comment']?.toString().trim() ?? '';
+    final endFlag = entry['end']?.toString().trim() ?? '';
+    return endDate.isNotEmpty || endComment.isNotEmpty || endFlag.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,7 +119,15 @@ class _HistoryPageSecondMedikationState
       body: ListView.builder(
         itemCount: _entries.length,
         itemBuilder: (context, index) {
+          final entry = _entries[index];
+          final medCount = _currentTable == 'tierdoku'
+              ? _medikationCount(entry)
+              : 0;
           return ExpansionTile(
+            collapsedBackgroundColor:
+                _hasVerendung(entry) ? Colors.grey.shade200 : null,
+            backgroundColor:
+                _hasVerendung(entry) ? Colors.grey.shade200 : null,
             title: GestureDetector(
               onLongPress: () async {
                 if (_currentTable == 'tierdoku') {
@@ -140,11 +169,28 @@ class _HistoryPageSecondMedikationState
                   );
                 }
               },
-              child: Text(
-                "${_entries[index]['stallname']}".split("#")[1] +
-                    (_currentTable == 'tierdoku'
-                        ? " - Bucht: ${_entries[index]['bucht']} ${formatJsonList(_entries[index]['symptome'])}"
-                        : " - ${_entries[index]['date'].toString().substring(0, 10)}, ${_entries[index]['zugang_abgang']}: ${_entries[index]['anzahl']}"),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "${entry['stallname']}".split("#")[1] +
+                          (_currentTable == 'tierdoku'
+                              ? " - Bucht: ${entry['bucht']} ${formatJsonList(entry['symptome'])}"
+                              : " - ${entry['date'].toString().substring(0, 10)}, ${entry['zugang_abgang']}: ${entry['anzahl']}"),
+                    ),
+                  ),
+                  if (_currentTable == 'tierdoku' && medCount > 0) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.medication_outlined, size: 16),
+                    if (medCount > 1) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        medCount.toString(),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ],
+                ],
               ),
             ),
             trailing: _currentTable == 'tierdoku'

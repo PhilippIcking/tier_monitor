@@ -418,20 +418,29 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Analyse')),
+        appBar: AppBar(
+          title: const Text('Analyse'),
+          elevation: 5.0,
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_minDate == null || _maxDate == null || _allBetriebe.isEmpty || _selectedRange == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Analyse')),
+        appBar: AppBar(
+          title: const Text('Analyse'),
+          elevation: 5.0,
+        ),
         body: const Center(child: Text('Keine Daten oder Tabellen leer.')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Analyse')),
+      appBar: AppBar(
+        title: const Text('Analyse'),
+        elevation: 5.0,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
