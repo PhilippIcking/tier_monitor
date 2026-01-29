@@ -45,15 +45,13 @@ class _TierbewegungState extends State<Tierbewegung> {
     Database database = await openDatabase(path, version: 1);
 
     final baselineResult = await database.rawQuery(
-      "SELECT tierbestand FROM tierbewegungen "
-          "WHERE stallname = ? AND date < ? "
-          "ORDER BY date DESC LIMIT 1",
+      "SELECT COALESCE(SUM(CASE "
+          "WHEN zugang_abgang = 'Zugang' THEN anzahl "
+          "ELSE -anzahl END), 0) AS total "
+          "FROM tierbewegungen WHERE stallname = ? AND date < ?",
       [widget.stallname, selectedDate.toString()],
     );
-    int baseline = 0;
-    if (baselineResult.isNotEmpty) {
-      baseline = baselineResult.first['tierbestand'] as int;
-    }
+    int baseline = (baselineResult.first['total'] as int?) ?? 0;
     int movementValue = _isZugang ? _newCount : -_newCount;
     int newTierbestand = baseline + movementValue;
     await database.close();
@@ -96,7 +94,6 @@ class _TierbewegungState extends State<Tierbewegung> {
       'stallname': widget.stallname,
       'anzahl': _newCount,
       'zugang_abgang': _isZugang ? 'Zugang' : 'Abgang',
-      'tierbestand': 0,
       'comment': _selectedComment,
       'date': selectedDate.toString(),
       'end': _isToggleOn ? 'Verendung' : '',
@@ -108,39 +105,14 @@ class _TierbewegungState extends State<Tierbewegung> {
 
     await database.insert('tierbewegungen', newRecord);
 
-    final baselineResult = await database.rawQuery(
-      "SELECT tierbestand FROM tierbewegungen "
-          "WHERE stallname = ? AND date < ? "
-          "ORDER BY date DESC LIMIT 1",
-      [widget.stallname, selectedDate.toString()],
+    final totalResult = await database.rawQuery(
+      "SELECT COALESCE(SUM(CASE "
+          "WHEN zugang_abgang = 'Zugang' THEN anzahl "
+          "ELSE -anzahl END), 0) AS total "
+          "FROM tierbewegungen WHERE stallname = ?",
+      [widget.stallname],
     );
-    int baseline = 0;
-    if (baselineResult.isNotEmpty) {
-      baseline = baselineResult.first['tierbestand'] as int;
-    }
-
-    final subsequentRecords = await database.rawQuery(
-      "SELECT * FROM tierbewegungen "
-          "WHERE stallname = ? AND date >= ? "
-          "ORDER BY date ASC, id ASC",
-      [widget.stallname, selectedDate.toString()],
-    );
-
-    int cumulative = baseline;
-    for (var record in subsequentRecords) {
-      int recordAnzahl = record['anzahl'] as int;
-      String zugangAbgang = record['zugang_abgang'] as String;
-      int recordMovement = (zugangAbgang == 'Zugang') ? recordAnzahl : -recordAnzahl;
-      cumulative += recordMovement;
-
-      int recordId = record['id'] as int;
-      await database.update(
-        'tierbewegungen',
-        {'tierbestand': cumulative},
-        where: 'id = ?',
-        whereArgs: [recordId],
-      );
-    }
+    int cumulative = (totalResult.first['total'] as int?) ?? 0;
 
     setState(() {
       _currentCount = cumulative;

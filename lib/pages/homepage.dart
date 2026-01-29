@@ -59,7 +59,6 @@ class _WidgetListState extends State<WidgetList> {
             'stallname TEXT,'
             'anzahl INTEGER,'
             'zugang_abgang TEXT,'
-            'tierbestand INTEGER,'
             'comment TEXT,'
             'date TEXT,'
             'end TEXT'
@@ -165,7 +164,6 @@ class _WidgetListState extends State<WidgetList> {
           TextCellValue('Stallname'),
           TextCellValue('Anzahl'),
           TextCellValue('Zugang/Abgang'),
-          TextCellValue('Tierbestand'),
           TextCellValue('Kommentar'),
           TextCellValue('Datum ISO (YYYY-MM-DD)'),
           TextCellValue('Datum Excel Format'),
@@ -185,7 +183,6 @@ class _WidgetListState extends State<WidgetList> {
             TextCellValue(stallName),
             TextCellValue(record['anzahl'].toString()),
             TextCellValue(record['zugang_abgang'] ?? ''),
-            TextCellValue(record['tierbestand'].toString()),
             TextCellValue(record['comment'] ?? ''),
             TextCellValue(originalDate),
             TextCellValue('$year-$month-$day'),

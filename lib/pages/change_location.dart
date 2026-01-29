@@ -53,40 +53,10 @@ class _ChangeLocationState extends State<ChangeLocation> {
     }
   }
 
-  Future<void> _recalculateCumulative(
-      Database database, String stallName, String startDate) async {
-    final baselineResult = await database.rawQuery(
-      "SELECT tierbestand FROM tierbewegungen "
-          "WHERE stallname = ? AND date < ? "
-          "ORDER BY date DESC LIMIT 1",
-      [stallName, startDate],
-    );
-    int baseline = baselineResult.isNotEmpty
-        ? baselineResult.first['tierbestand'] as int
-        : 0;
-
-    final rows = await database.rawQuery(
-      "SELECT * FROM tierbewegungen "
-          "WHERE stallname = ? AND date >= ? "
-          "ORDER BY date ASC, id ASC",
-      [stallName, startDate],
-    );
-
-    int cumulative = baseline;
-    for (var row in rows) {
-      final qty = row['anzahl'] as int;
-      final isZugang = row['zugang_abgang'] == 'Zugang';
-      cumulative += isZugang ? qty : -qty;
-      await database.update(
-        'tierbewegungen',
-        {'tierbestand': cumulative},
-        where: 'id = ?',
-        whereArgs: [row['id']],
-      );
-    }
-
+  Future<void> _updateSharedCount(String stallName, int delta) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(stallName, cumulative);
+    final current = prefs.getInt(stallName) ?? 0;
+    await prefs.setInt(stallName, current + delta);
   }
 
   Future<void> updateEntry(
@@ -101,17 +71,8 @@ class _ChangeLocationState extends State<ChangeLocation> {
     final db = await openDatabase(path, version: 1);
 
     if (update) {
-      final lastOld = await db.rawQuery(
-        'SELECT tierbestand FROM tierbewegungen '
-            'WHERE stallname = ? '
-            'ORDER BY date DESC, id DESC LIMIT 1',
-        [widget.stallname],
-      );
       final prefs = await SharedPreferences.getInstance();
-      final storedOld = prefs.getInt(widget.stallname) ?? 0;
-      final baselineOld = lastOld.isNotEmpty
-          ? lastOld.first['tierbestand'] as int
-          : storedOld;
+      final baselineOld = prefs.getInt(widget.stallname) ?? 0;
 
       if (baselineOld - 1 < 0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -127,36 +88,21 @@ class _ChangeLocationState extends State<ChangeLocation> {
         'stallname': widget.stallname,
         'anzahl': 1,
         'zugang_abgang': 'Abgang',
-        'tierbestand': baselineOld - 1,
         'comment': 'Umgestallt nach ${newLocation.replaceAll("#", "-")}',
         'date': date.toString(),
         'end': '',
       });
-      await prefs.setInt(widget.stallname, baselineOld - 1);
+      await _updateSharedCount(widget.stallname, -1);
 
-      final lastNew = await db.rawQuery(
-        'SELECT tierbestand FROM tierbewegungen '
-            'WHERE stallname = ? '
-            'ORDER BY date DESC, id DESC LIMIT 1',
-        [newLocation],
-      );
-      final storedNew = prefs.getInt(newLocation) ?? 0;
-      final baselineNew = lastNew.isNotEmpty
-          ? lastNew.first['tierbestand'] as int
-          : storedNew;
       await db.insert('tierbewegungen', {
         'stallname': newLocation,
         'anzahl': 1,
         'zugang_abgang': 'Zugang',
-        'tierbestand': baselineNew + 1,
         'comment': 'Umgestallt von ${widget.stallname.replaceAll("#", "-")}',
         'date': date.toString(),
         'end': '',
       });
-      await prefs.setInt(newLocation, baselineNew + 1);
-
-      await _recalculateCumulative(db, widget.stallname, date.toString());
-      await _recalculateCumulative(db, newLocation, date.toString());
+      await _updateSharedCount(newLocation, 1);
     }
 
     final current = await db.query(

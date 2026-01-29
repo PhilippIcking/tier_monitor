@@ -163,20 +163,37 @@ class _AnalysisPageState extends State<AnalysisPage> {
       whereArgs: [full],
     );
 
-    List<_TimeSeriesInt> result = [];
+    final List<_MovementRow> parsed = [];
     for (var row in rows) {
-      String? dateStr = row['date'] as String?;
-      final dt = _parseDate(dateStr);
+      final dt = _parseDate(row['date'] as String?);
       if (dt == null) continue;
-      if (dt.isBefore(startDate) || dt.isAfter(endDate)) continue;
-
-      final tierbestand = row['tierbestand'] as int?;
-      if (tierbestand == null) continue;
-
-      result.add(_TimeSeriesInt(dt, tierbestand));
+      parsed.add(_MovementRow(dt, row['id'] as int, _movementDelta(row)));
     }
-    result.sort((a, b) => a.time.compareTo(b.time));
+    parsed.sort((a, b) {
+      final cmp = a.time.compareTo(b.time);
+      if (cmp != 0) return cmp;
+      return a.id.compareTo(b.id);
+    });
+
+    int cumulative = 0;
+    List<_TimeSeriesInt> result = [];
+    for (var row in parsed) {
+      if (row.time.isBefore(startDate)) {
+        cumulative += row.delta;
+        continue;
+      }
+      if (row.time.isAfter(endDate)) {
+        break;
+      }
+      cumulative += row.delta;
+      result.add(_TimeSeriesInt(row.time, cumulative));
+    }
     return result;
+  }
+
+  int _movementDelta(Map<String, dynamic> row) {
+    final qty = row['anzahl'] as int? ?? 0;
+    return row['zugang_abgang'] == 'Zugang' ? qty : -qty;
   }
 
   Future<List<_TimeSeriesInt>> _fetchTierbestandForStallWithCarryForward(
@@ -247,20 +264,14 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Future<int> _fetchPreviousValueBeforeDate(
       String betrieb, String stall, DateTime startDate) async {
     final String fullName = '$betrieb#$stall';
-    final String startStr = _dateOnlyString(startDate);
-    final prevRows = await _db.query(
-      'tierbewegungen',
-      where: 'stallname = ? AND date < ?',
-      whereArgs: [fullName, startStr],
-      orderBy: 'date DESC',
-      limit: 1,
+    final result = await _db.rawQuery(
+      "SELECT COALESCE(SUM(CASE "
+          "WHEN zugang_abgang = 'Zugang' THEN anzahl "
+          "ELSE -anzahl END), 0) AS total "
+          "FROM tierbewegungen WHERE stallname = ? AND date < ?",
+      [fullName, startDate.toString()],
     );
-    if (prevRows.isNotEmpty) {
-      final int? value = prevRows.first['tierbestand'] as int?;
-      return value ?? 0;
-    } else {
-      return 0;
-    }
+    return (result.first['total'] as int?) ?? 0;
   }
 
   Future<List<_TimeSeriesInt>> _fetchTierbestandForBetrieb(
@@ -1084,4 +1095,12 @@ class _TimeSeriesInt {
   final int value;
 
   _TimeSeriesInt(this.time, this.value);
+}
+
+class _MovementRow {
+  final DateTime time;
+  final int id;
+  final int delta;
+
+  _MovementRow(this.time, this.id, this.delta);
 }

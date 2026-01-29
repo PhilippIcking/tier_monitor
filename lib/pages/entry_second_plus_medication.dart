@@ -491,16 +491,8 @@ class _EntryPageEndState extends State<EntryPageEnd> {
     final db = await _openDb();
 
     // 1) aktuellen Bestand ermitteln
-    final prev = await db.rawQuery(
-      "SELECT tierbestand FROM tierbewegungen "
-          "WHERE stallname = ? AND date <= ? "
-          "ORDER BY date DESC LIMIT 1",
-      [widget.stallname, selectedDate.toString()],
-    );
     final prefs = await SharedPreferences.getInstance();
-    final current = prev.isNotEmpty
-        ? prev.first['tierbestand'] as int
-        : prefs.getInt(widget.stallname) ?? 0;
+    final current = prefs.getInt(widget.stallname) ?? 0;
 
     // 2) Negativ-Check
     if (current - 1 < 0) {
@@ -519,35 +511,14 @@ class _EntryPageEndState extends State<EntryPageEnd> {
       'stallname': widget.stallname,
       'anzahl': 1,
       'zugang_abgang': 'Abgang',
-      'tierbestand': 0, // wird gleich neu berechnet
       'comment': 'Verendung'
           '${_selectedComment.isNotEmpty ? ': $_selectedComment' : ''}',
       'date': selectedDate.toString(),
       'end': 'Verendung',
     });
 
-    // 4) kumulative Neuberechnung
-    int cumulative = current;
-    final rows = await db.rawQuery(
-      "SELECT * FROM tierbewegungen "
-          "WHERE stallname = ? AND date >= ? "
-          "ORDER BY date ASC, id ASC",
-      [widget.stallname, selectedDate.toString()],
-    );
-    for (var row in rows) {
-      final qty = row['anzahl'] as int;
-      final isZugang = row['zugang_abgang'] == 'Zugang';
-      cumulative += isZugang ? qty : -qty;
-      await db.update(
-        'tierbewegungen',
-        {'tierbestand': cumulative},
-        where: 'id = ?',
-        whereArgs: [row['id']],
-      );
-    }
-
-    // 5) SharedPreferences aktualisieren
-    await prefs.setInt(widget.stallname, cumulative);
+    // 4) SharedPreferences aktualisieren
+    await prefs.setInt(widget.stallname, current - 1);
     await db.close();
   }
 

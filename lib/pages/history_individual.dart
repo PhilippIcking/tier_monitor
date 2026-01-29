@@ -252,11 +252,6 @@ class _HistoryPageSecondMedikationState
                 ListTile(
                   title: Text("Anzahl: ${_entries[index]['anzahl']}"),
                 ),
-              if (_entries[index]['tierbestand'] != null)
-                ListTile(
-                  title:
-                  Text("Gesamtbestand: ${_entries[index]['tierbestand']}"),
-                ),
               if (_entries[index]['comment'] != null &&
                   _entries[index]['comment'] != "")
                 ListTile(
