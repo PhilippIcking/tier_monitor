@@ -39,7 +39,7 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
     );
     if (picked != null && picked != selectedDate) {
       setState(() {
@@ -257,7 +257,7 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
     );
     if (picked != null && picked != selectedDate) {
       setState(() {
@@ -460,7 +460,7 @@ class _EntryPageEndState extends State<EntryPageEnd> {
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
     );
     if (picked != null && picked != selectedDate) {
       setState(() => selectedDate = picked);

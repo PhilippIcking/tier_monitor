@@ -46,7 +46,7 @@ class _ChangeLocationState extends State<ChangeLocation> {
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
     );
     if (picked != null && picked != selectedDate) {
       setState(() => selectedDate = picked);
