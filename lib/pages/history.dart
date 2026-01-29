@@ -111,7 +111,7 @@ class _HistoryPageState extends State<HistoryPage> {
           whereParts.add('zugang_abgang = ?');
           args.add(_selectedType);
         }
-      } else if (_selectedType == 'Medikament') {
+      } else if (_selectedType == 'Behandelt mit Medikament') {
         whereParts.add(
           "("
           "medikament IS NOT NULL AND TRIM(medikament) NOT IN ('', '[]')"
