@@ -40,6 +40,16 @@ class _TierbewegungState extends State<Tierbewegung> {
   }
 
   Future<void> _updateCount(BuildContext context) async {
+    if (_newCount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bitte eine positive Anzahl eingeben'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     var databasesPath = await getDatabasesPath();
     String path = join(databasesPath, 'my_database.db');
     Database database = await openDatabase(path, version: 1);
@@ -54,9 +64,9 @@ class _TierbewegungState extends State<Tierbewegung> {
     int baseline = (baselineResult.first['total'] as int?) ?? 0;
     int movementValue = _isZugang ? _newCount : -_newCount;
     int newTierbestand = baseline + movementValue;
-    await database.close();
 
     if (newTierbestand < 0) {
+      await database.close();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Die Anzahl darf nicht negativ sein'),
@@ -64,6 +74,38 @@ class _TierbewegungState extends State<Tierbewegung> {
         ),
       );
     } else {
+      final subsequentRecords = await database.rawQuery(
+        "SELECT * FROM tierbewegungen "
+            "WHERE stallname = ? AND date >= ? "
+            "ORDER BY date ASC, id ASC",
+        [widget.stallname, selectedDate.toString()],
+      );
+
+      int cumulative = newTierbestand;
+      bool wouldGoNegative = false;
+      for (var record in subsequentRecords) {
+        final recordAnzahl = record['anzahl'] as int? ?? 0;
+        final zugangAbgang = record['zugang_abgang'] as String? ?? '';
+        final recordMovement = (zugangAbgang == 'Zugang') ? recordAnzahl : -recordAnzahl;
+        cumulative += recordMovement;
+        if (cumulative < 0) {
+          wouldGoNegative = true;
+          break;
+        }
+      }
+
+      if (wouldGoNegative) {
+        await database.close();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Die Änderung würde zu einem negativen Bestand führen'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
+      await database.close();
       await _speichern(context);
       setState(() {
         _newCount = 0;

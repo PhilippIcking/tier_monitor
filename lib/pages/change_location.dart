@@ -53,10 +53,53 @@ class _ChangeLocationState extends State<ChangeLocation> {
     }
   }
 
-  Future<void> _updateSharedCount(String stallName, int delta) async {
+  Future<int> _getBaselineBeforeDate(
+      Database db, String stallName, DateTime date) async {
+    final result = await db.rawQuery(
+      "SELECT COALESCE(SUM(CASE "
+          "WHEN zugang_abgang = 'Zugang' THEN anzahl "
+          "ELSE -anzahl END), 0) AS total "
+          "FROM tierbewegungen WHERE stallname = ? AND date < ?",
+      [stallName, date.toString()],
+    );
+    return (result.first['total'] as int?) ?? 0;
+  }
+
+  int _movementDelta(Map<String, dynamic> row) {
+    final qty = row['anzahl'] as int? ?? 0;
+    return row['zugang_abgang'] == 'Zugang' ? qty : -qty;
+  }
+
+  Future<bool> _wouldGoNegativeAfterDelta(
+      Database db, String stallName, DateTime date, int delta) async {
+    int baseline = await _getBaselineBeforeDate(db, stallName, date);
+    int cumulative = baseline + delta;
+    if (cumulative < 0) return true;
+
+    final subsequentRecords = await db.rawQuery(
+      "SELECT * FROM tierbewegungen "
+          "WHERE stallname = ? AND date >= ? "
+          "ORDER BY date ASC, id ASC",
+      [stallName, date.toString()],
+    );
+    for (var record in subsequentRecords) {
+      cumulative += _movementDelta(record);
+      if (cumulative < 0) return true;
+    }
+    return false;
+  }
+
+  Future<void> _refreshSharedCountFromDb(Database db, String stallName) async {
+    final result = await db.rawQuery(
+      "SELECT COALESCE(SUM(CASE "
+          "WHEN zugang_abgang = 'Zugang' THEN anzahl "
+          "ELSE -anzahl END), 0) AS total "
+          "FROM tierbewegungen WHERE stallname = ?",
+      [stallName],
+    );
+    final total = (result.first['total'] as int?) ?? 0;
     final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getInt(stallName) ?? 0;
-    await prefs.setInt(stallName, current + delta);
+    await prefs.setInt(stallName, total);
   }
 
   Future<void> updateEntry(
@@ -71,10 +114,13 @@ class _ChangeLocationState extends State<ChangeLocation> {
     final db = await openDatabase(path, version: 1);
 
     if (update) {
-      final prefs = await SharedPreferences.getInstance();
-      final baselineOld = prefs.getInt(widget.stallname) ?? 0;
-
-      if (baselineOld - 1 < 0) {
+      final wouldGoNegative = await _wouldGoNegativeAfterDelta(
+        db,
+        widget.stallname,
+        date,
+        -1,
+      );
+      if (wouldGoNegative) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Fehler: Abgang würde negativen Bestand erzeugen'),
@@ -83,7 +129,6 @@ class _ChangeLocationState extends State<ChangeLocation> {
         await db.close();
         return;
       }
-
       await db.insert('tierbewegungen', {
         'stallname': widget.stallname,
         'anzahl': 1,
@@ -92,7 +137,7 @@ class _ChangeLocationState extends State<ChangeLocation> {
         'date': date.toString(),
         'end': '',
       });
-      await _updateSharedCount(widget.stallname, -1);
+      await _refreshSharedCountFromDb(db, widget.stallname);
 
       await db.insert('tierbewegungen', {
         'stallname': newLocation,
@@ -102,7 +147,7 @@ class _ChangeLocationState extends State<ChangeLocation> {
         'date': date.toString(),
         'end': '',
       });
-      await _updateSharedCount(newLocation, 1);
+      await _refreshSharedCountFromDb(db, newLocation);
     }
 
     final current = await db.query(
@@ -207,3 +252,6 @@ class _ChangeLocationState extends State<ChangeLocation> {
     );
   }
 }
+
+
+
