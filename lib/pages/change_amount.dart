@@ -75,11 +75,14 @@ class _TierbewegungState extends State<Tierbewegung> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    if (selectedDate.isAfter(DateTime.now())) {
+      selectedDate = DateTime.now();
+    }
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(),
     );
     if (picked != null && picked != selectedDate) {
       setState(() {
