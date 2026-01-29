@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tier_monitor/pages/homepage.dart';
 import 'package:tier_monitor/pages/settings.dart';
 import 'package:tier_monitor/pages/analysis_page.dart';
+import 'package:tier_monitor/pages/history.dart';
 
 void main() => runApp(const MyApp());
 
@@ -33,6 +34,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = const [
     WidgetList(),
+    HistoryPage(),
     AnalysisPage(),
     SettingsPage(),
   ];
@@ -52,6 +54,10 @@ class _MainScreenState extends State<MainScreen> {
           NavigationDestination(
             icon: Icon(Icons.book),
             label: 'Tagebuch',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history),
+            label: 'Verlauf',
           ),
           NavigationDestination(
             icon: Icon(Icons.analytics),

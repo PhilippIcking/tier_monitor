@@ -7,7 +7,6 @@ import 'package:excel/excel.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dart:io';
-import 'package:tier_monitor/pages/history.dart';
 import 'package:tier_monitor/pages/second_layer.dart';
 
 class WidgetList extends StatefulWidget {
@@ -277,17 +276,6 @@ class _WidgetListState extends State<WidgetList> {
       appBar: AppBar(
         title: const Text('Betriebe'),
         elevation: 5.0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const HistoryPage()),
-              );
-            },
-          ),
-        ],
       ),
       body: Center(
         child: ListView.builder(
