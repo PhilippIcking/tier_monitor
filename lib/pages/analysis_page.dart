@@ -35,11 +35,18 @@ class _AnalysisPageState extends State<AnalysisPage> {
   Map<String, List<String>> _betriebStalls = {};
 
   bool _loading = false;
+  final ScrollController _presetScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _initDbAndData();
+  }
+
+  @override
+  void dispose() {
+    _presetScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initDbAndData() async {
@@ -423,32 +430,30 @@ class _AnalysisPageState extends State<AnalysisPage> {
             Card(
               elevation: 2,
               margin: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('1) Tierzahlverlauf', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 12),
-                    _buildTierzahlVerlaufSection(),
-                  ],
-                ),
+              child: ExpansionTile(
+                initiallyExpanded: true,
+                title: Text('1) Tierzahlverlauf', style: Theme.of(context).textTheme.titleMedium),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: _buildTierzahlVerlaufSection(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
             Card(
               elevation: 2,
               margin: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('2) Auswertung Symptome & Medikamente', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 12),
-                    _buildSymMedCharts(),
-                  ],
-                ),
+              child: ExpansionTile(
+                initiallyExpanded: true,
+                title: Text('2) Auswertung Symptome & Medikamente', style: Theme.of(context).textTheme.titleMedium),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: _buildSymMedCharts(),
+                  ),
+                ],
               ),
             ),
           ],
@@ -469,116 +474,145 @@ class _AnalysisPageState extends State<AnalysisPage> {
           children: [
             Text('Filter'),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _presetButton('Letzte 30 Tage', _rangeLastDays(30)),
-                _presetButton('Letzte 90 Tage', _rangeLastDays(90)),
-                _presetButton('Dieses Jahr', _rangeForYear(DateTime.now().year)),
-                _presetButton('Letztes Jahr', _rangeForYear(DateTime.now().year - 1)),
-                _presetButton('Maximal', _rangeFull()),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _allBetriebe
+                    .map((b) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _betriebButton(b),
+                        ))
+                    .toList(),
+              ),
             ),
             const SizedBox(height: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Card(
+              elevation: 0,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Zeitraum',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatRangeLabel(_selectedRange!),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Zeitraum ändern',
+                      icon: const Icon(Icons.edit),
+                      onPressed: () async {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: _minDate!,
+                          lastDate: _maxDate!,
+                          initialDateRange: _selectedRange,
+                        );
+                        if (picked == null) return;
+                        setState(() {
+                          _selectedRange = picked;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              controller: _presetScrollController,
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _presetButton('Maximal', _rangeFull()),
+                  const SizedBox(width: 8),
+                  _presetButton('Dieses Jahr', _rangeForYear(DateTime.now().year)),
+                  const SizedBox(width: 8),
+                  _presetButton('Letztes Jahr', _rangeForYear(DateTime.now().year - 1)),
+                  const SizedBox(width: 8),
+                  _presetButton('Letzte 90 Tage', _rangeLastDays(90)),
+                  const SizedBox(width: 8),
+                  _presetButton('Letzte 30 Tage', _rangeLastDays(30)),
+                  const SizedBox(width: 8),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ExpansionTile(
+              title: const Text('Symptome'),
               children: [
-                Text('Zeitraum: ${_formatRangeLabel(_selectedRange!)}'),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: _minDate!,
-                        lastDate: _maxDate!,
-                        initialDateRange: _selectedRange,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _allSymptoms.map((sym) {
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Checkbox(
+                            value: _selectedSymptoms.contains(sym),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedSymptoms.add(sym);
+                                } else {
+                                  _selectedSymptoms.remove(sym);
+                                }
+                              });
+                            },
+                          ),
+                          Text(sym),
+                        ],
                       );
-                      if (picked == null) return;
-                      setState(() {
-                        _selectedRange = picked;
-                      });
-                    },
-                    child: const Text('Zeitraum ändern'),
+                    }).toList(),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
+            ExpansionTile(
+              title: const Text('Medikamente'),
               children: [
-                const Text('Betrieb: '),
-                const SizedBox(width: 16),
-                DropdownButton<String>(
-                  value: _selectedBetrieb,
-                  items: _allBetriebe
-                      .map((b) => DropdownMenuItem<String>(
-                    value: b,
-                    child: Text(b),
-                  ))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val == null) return;
-                    setState(() {
-                      _selectedBetrieb = val;
-                    });
-                  },
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _allMedications.map((med) {
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Checkbox(
+                            value: _selectedMedications.contains(med),
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedMedications.add(med);
+                                } else {
+                                  _selectedMedications.remove(med);
+                                }
+                              });
+                            },
+                          ),
+                          Text(med),
+                        ],
+                      );
+                    }).toList(),
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Text('Symptome:'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: _allSymptoms.map((sym) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Checkbox(
-                      value: _selectedSymptoms.contains(sym),
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            _selectedSymptoms.add(sym);
-                          } else {
-                            _selectedSymptoms.remove(sym);
-                          }
-                        });
-                      },
-                    ),
-                    Text(sym),
-                  ],
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-            Text('Medikamente:'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: _allMedications.map((med) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Checkbox(
-                      value: _selectedMedications.contains(med),
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            _selectedMedications.add(med);
-                          } else {
-                            _selectedMedications.remove(med);
-                          }
-                        });
-                      },
-                    ),
-                    Text(med),
-                  ],
-                );
-              }).toList(),
             ),
           ],
         ),
@@ -963,6 +997,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
     return "$start bis $end";
   }
 
+
   Widget _presetButton(String label, DateTimeRange? range) {
     final bool disabled = range == null;
     final bool active = !disabled && _isSameRange(_selectedRange, range);
@@ -986,6 +1021,28 @@ class _AnalysisPageState extends State<AnalysisPage> {
       child: Text(label),
     );
   }
+
+  Widget _betriebButton(String name) {
+    final bool active = _selectedBetrieb == name;
+    return OutlinedButton(
+      onPressed: () {
+        setState(() {
+          _selectedBetrieb = name;
+        });
+      },
+      style: active
+          ? OutlinedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 1.5,
+              ),
+            )
+          : null,
+      child: Text(name),
+    );
+  }
+
 
   DateTimeRange? _rangeLastDays(int days) {
     if (_minDate == null || _maxDate == null) return null;
