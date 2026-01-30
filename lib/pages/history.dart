@@ -355,94 +355,91 @@ class _HistoryPageState extends State<HistoryPage> {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.all(12.0),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Filter', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _selectedStall,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Stall',
-                border: OutlineInputBorder(),
+      child: ExpansionTile(
+        title: Text('Filter', style: Theme.of(context).textTheme.titleMedium),
+        initiallyExpanded: false,
+        childrenPadding: const EdgeInsets.all(12.0),
+        children: [
+          DropdownButtonFormField<String>(
+            value: _selectedStall,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Stall',
+              border: OutlineInputBorder(),
+            ),
+            items: _stallOptions
+                .map((stall) => DropdownMenuItem(
+                      value: stall,
+                      child: Text(stall.replaceAll('#', '-')),
+                    ))
+                .toList(),
+            onChanged: (val) {
+              setState(() {
+                _selectedStall = val ?? 'Alle';
+              });
+              _fetchEntriesFromDatabase();
+            },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: typeOptions.contains(_selectedType) ? _selectedType : 'Alle',
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Typ',
+              border: OutlineInputBorder(),
+            ),
+            items: typeOptions
+                .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                .toList(),
+            onChanged: (val) {
+              setState(() {
+                _selectedType = val ?? 'Alle';
+              });
+              _fetchEntriesFromDatabase();
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _selectedRange == null
+                      ? 'Zeitraum: Alle'
+                      : 'Zeitraum: ${_formatRangeLabel(_selectedRange!)}',
+                ),
               ),
-              items: _stallOptions
-                  .map((stall) => DropdownMenuItem(
-                        value: stall,
-                        child: Text(stall.replaceAll('#', '-')),
-                      ))
-                  .toList(),
-              onChanged: (val) {
-                setState(() {
-                  _selectedStall = val ?? 'Alle';
-                });
-                _fetchEntriesFromDatabase();
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: typeOptions.contains(_selectedType) ? _selectedType : 'Alle',
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Typ',
-                border: OutlineInputBorder(),
+              TextButton(
+                onPressed: (_minDate == null || _maxDate == null)
+                    ? null
+                    : () async {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: _minDate!,
+                          lastDate: _maxDate!,
+                          initialDateRange: _selectedRange,
+                        );
+                        if (picked == null) return;
+                        setState(() {
+                          _selectedRange = picked;
+                        });
+                        _fetchEntriesFromDatabase();
+                      },
+                child: const Text('Zeitraum ändern'),
               ),
-              items: typeOptions
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                  .toList(),
-              onChanged: (val) {
-                setState(() {
-                  _selectedType = val ?? 'Alle';
-                });
-                _fetchEntriesFromDatabase();
-              },
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _selectedRange == null
-                        ? 'Zeitraum: Alle'
-                        : 'Zeitraum: ${_formatRangeLabel(_selectedRange!)}',
-                  ),
-                ),
-                TextButton(
-                  onPressed: (_minDate == null || _maxDate == null)
-                      ? null
-                      : () async {
-                          final picked = await showDateRangePicker(
-                            context: context,
-                            firstDate: _minDate!,
-                            lastDate: _maxDate!,
-                            initialDateRange: _selectedRange,
-                          );
-                          if (picked == null) return;
-                          setState(() {
-                            _selectedRange = picked;
-                          });
-                          _fetchEntriesFromDatabase();
-                        },
-                  child: const Text('Zeitraum ändern'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedRange = null;
-                      _selectedStall = 'Alle';
-                      _selectedType = 'Alle';
-                    });
-                    _fetchEntriesFromDatabase();
-                  },
-                  child: const Text('Zurücksetzen'),
-                ),
-              ],
-            ),
-          ],
-        ),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedRange = null;
+                    _selectedStall = 'Alle';
+                    _selectedType = 'Alle';
+                  });
+                  _fetchEntriesFromDatabase();
+                },
+                child: const Text('Zurücksetzen'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
