@@ -179,9 +179,10 @@ class _ChangeLocationState extends State<ChangeLocation> {
   @override
   Widget build(BuildContext context) {
     final canSave = _selectedNewLocation.isNotEmpty;
+    final colorScheme = Theme.of(context).colorScheme;
     final fabColor = canSave
-        ? Theme.of(context).colorScheme.primary
-        : Colors.grey;
+        ? colorScheme.primary
+        : colorScheme.onSurface.withValues(alpha: 0.38);
 
     return Scaffold(
       appBar: AppBar(

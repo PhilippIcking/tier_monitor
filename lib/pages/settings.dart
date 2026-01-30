@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({Key? key}) : super(key: key);
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
+  const SettingsPage({
+    Key? key,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+  }) : super(key: key);
 
   @override
   _SettingsPageState createState() => _SettingsPageState();
@@ -73,10 +79,23 @@ class _SettingsPageState extends State<SettingsPage>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bool isDarkMode = widget.themeMode == ThemeMode.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Einstellungen'),
         elevation: 5,
+        actions: [
+          IconButton(
+            tooltip: isDarkMode ? 'Hellmodus' : 'Dunkelmodus',
+            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: () {
+              widget.onThemeModeChanged(
+                isDarkMode ? ThemeMode.light : ThemeMode.dark,
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
@@ -88,7 +107,7 @@ class _SettingsPageState extends State<SettingsPage>
               items: _symptoms,
               controller: _symptomController,
               addedFlag: _symptomAdded,
-              chipColor: Colors.blue.shade100,
+              chipColor: colorScheme.primaryContainer,
               saveKey: 'symptoms',
             ),
 
@@ -98,7 +117,7 @@ class _SettingsPageState extends State<SettingsPage>
               items: _medications,
               controller: _medicationController,
               addedFlag: _medicationAdded,
-              chipColor: Colors.green.shade100,
+              chipColor: colorScheme.secondaryContainer,
               saveKey: 'medications',
             ),
 
@@ -117,7 +136,7 @@ class _SettingsPageState extends State<SettingsPage>
                       hintText: 'Bucht hinzufügen',
                       suffixIcon: IconButton(
                         icon: _buchtAdded
-                            ? const Icon(Icons.check, color: Colors.grey)
+                            ? Icon(Icons.check, color: colorScheme.onSurfaceVariant)
                             : const Icon(Icons.add),
                         onPressed: () {
                           final text = _buchtController.text.trim();
@@ -155,7 +174,7 @@ class _SettingsPageState extends State<SettingsPage>
                         Chip(
                           key: ValueKey('bucht_$i'),
                           label: Text(_buchten[i]),
-                          backgroundColor: Colors.grey.shade300,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
                           onDeleted: () async {
                             final confirmed = await showDialog<bool>(
                               context: context,
@@ -205,7 +224,7 @@ class _SettingsPageState extends State<SettingsPage>
                       hintText: 'Farbe hinzufügen',
                       suffixIcon: IconButton(
                         icon: _farbeAdded
-                            ? const Icon(Icons.check, color: Colors.grey)
+                            ? Icon(Icons.check, color: colorScheme.onSurfaceVariant)
                             : const Icon(Icons.add),
                         onPressed: () {
                           final text = _farbeController.text.trim();
@@ -243,7 +262,7 @@ class _SettingsPageState extends State<SettingsPage>
                         Chip(
                           key: ValueKey('farbe_$i'),
                           label: Text(_farben[i]),
-                          backgroundColor: Colors.grey.shade300,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
                           onDeleted: () async {
                             final confirmed = await showDialog<bool>(
                               context: context,

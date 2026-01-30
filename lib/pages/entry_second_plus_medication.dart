@@ -111,6 +111,7 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Zweitmedikation eintragen'),
@@ -154,11 +155,11 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
                         value: medikament,
                         child: Text(medikament),
                       )),
-                      const DropdownMenuItem<String>(
+                      DropdownMenuItem<String>(
                         value: '__add_new_medikament__',
                         child: Row(
                           children: [
-                            Icon(Icons.add, color: Colors.green),
+                            Icon(Icons.add, color: colorScheme.secondary),
                             SizedBox(width: 8),
                             Text('Neues Medikament hinzufügen'),
                           ],
@@ -329,6 +330,7 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Drittmedikation eintragen'),
@@ -372,11 +374,11 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
                         value: medikament,
                         child: Text(medikament),
                       )),
-                      const DropdownMenuItem<String>(
+                      DropdownMenuItem<String>(
                         value: '__add_new_medikament__',
                         child: Row(
                           children: [
-                            Icon(Icons.add, color: Colors.green),
+                            Icon(Icons.add, color: colorScheme.secondary),
                             SizedBox(width: 8),
                             Text('Neues Medikament hinzufügen'),
                           ],

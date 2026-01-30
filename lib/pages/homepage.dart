@@ -272,6 +272,7 @@ class _WidgetListState extends State<WidgetList> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Betriebe'),
@@ -297,12 +298,12 @@ class _WidgetListState extends State<WidgetList> {
               },
               background: Container(),
               secondaryBackground: Container(
-                color: Colors.red,
+                color: colorScheme.error,
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.only(right: 20.0),
-                child: const Icon(
+                child: Icon(
                   Icons.delete,
-                  color: Colors.white,
+                  color: colorScheme.onError,
                   size: 30.0,
                 ),
               ),

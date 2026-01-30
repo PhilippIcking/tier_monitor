@@ -171,9 +171,10 @@ class _TierbewegungState extends State<Tierbewegung> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final Color fabColor = (_newCount > 0)
-        ? Theme.of(context).colorScheme.primary
-        : Colors.grey;
+        ? colorScheme.primary
+        : colorScheme.onSurface.withValues(alpha: 0.38);
 
     return Scaffold(
       appBar: AppBar(

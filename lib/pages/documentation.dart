@@ -186,8 +186,10 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
   @override
   Widget build(BuildContext context) {
     final bool canSave = _selectedBucht.isNotEmpty;
-    final Color fabColor =
-    canSave ? Theme.of(context).colorScheme.primary : Colors.grey;
+    final colorScheme = Theme.of(context).colorScheme;
+    final Color fabColor = canSave
+        ? colorScheme.primary
+        : colorScheme.onSurface.withValues(alpha: 0.38);
 
     return Scaffold(
       appBar: AppBar(
@@ -269,11 +271,11 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                                     child: Text(symptom),
                                   ),
                                 ),
-                                const DropdownMenuItem<String>(
+                                DropdownMenuItem<String>(
                                   value: '__add_new_symptom__',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.add, color: Colors.blue),
+                                      Icon(Icons.add, color: colorScheme.primary),
                                       SizedBox(width: 8),
                                       Text('Neues Symptom hinzufügen'),
                                     ],
@@ -344,11 +346,11 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                                     child: Text(medikament),
                                   ),
                                 ),
-                                const DropdownMenuItem<String>(
+                                DropdownMenuItem<String>(
                                   value: '__add_new_medikament__',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.add, color: Colors.green),
+                                      Icon(Icons.add, color: colorScheme.secondary),
                                       SizedBox(width: 8),
                                       Text('Neues Medikament hinzufügen'),
                                     ],

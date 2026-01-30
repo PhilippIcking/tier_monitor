@@ -96,6 +96,7 @@ class _HistoryPageSecondMedikationState
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text('Letzte Einträge: ${widget.stallname.split("#")[1]}'),
@@ -125,9 +126,9 @@ class _HistoryPageSecondMedikationState
               : 0;
           return ExpansionTile(
             collapsedBackgroundColor:
-                _hasVerendung(entry) ? Colors.grey.shade200 : null,
+                _hasVerendung(entry) ? colorScheme.surfaceContainerHighest : null,
             backgroundColor:
-                _hasVerendung(entry) ? Colors.grey.shade200 : null,
+                _hasVerendung(entry) ? colorScheme.surfaceContainerHighest : null,
             title: GestureDetector(
               onLongPress: () async {
                 if (_currentTable == 'tierdoku') {

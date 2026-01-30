@@ -722,6 +722,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   /// Baut ein Liniendiagramm für die gegebene Zeitreihe.
   Widget _buildLineChart(List<_TimeSeriesInt> data, DateTime startDate, DateTime endDate) {
+    final colorScheme = Theme.of(context).colorScheme;
     final double maxX = endDate.difference(startDate).inDays.toDouble();
 
     final List<FlSpot> spots = [];
@@ -748,6 +749,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
       LineChartBarData(
         spots: spots,
         isCurved: false,
+        color: colorScheme.primary,
       ),
     ];
 
@@ -756,7 +758,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
         lineTouchData: LineTouchData(
           enabled: true,
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (touchedSpot) => Colors.black87,
+            getTooltipColor: (touchedSpot) => colorScheme.inverseSurface,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 final int dayOffset = spot.x.round();
@@ -765,7 +767,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                 final String valueLabel = spot.y.toStringAsFixed(0);
                 return LineTooltipItem(
                   "$dateLabel\n$valueLabel",
-                  const TextStyle(fontSize: 12, color: Colors.white),
+                  TextStyle(fontSize: 12, color: colorScheme.onInverseSurface),
                 );
               }).toList();
             },
@@ -782,16 +784,16 @@ class _AnalysisPageState extends State<AnalysisPage> {
               getTitlesWidget: (value, meta) {
                 if (value == 0) {
                   return Text(_formatDateLabel(startDate, includeYear: includeYear, yearOnJanOnly: false),
-                      style: const TextStyle(fontSize: 10));
+                      style: TextStyle(fontSize: 10, color: colorScheme.onSurface));
                 } else if (value == maxX) {
                   return Text(_formatDateLabel(endDate, includeYear: includeYear, yearOnJanOnly: false),
-                      style: const TextStyle(fontSize: 10));
+                      style: TextStyle(fontSize: 10, color: colorScheme.onSurface));
                 } else {
                   final dt = startDate.add(Duration(days: value.toInt()));
                   if (value % step == 0) {
                     return Text(
                       _formatDateLabel(dt, includeYear: includeYear, yearOnJanOnly: false),
-                      style: const TextStyle(fontSize: 10),
+                      style: TextStyle(fontSize: 10, color: colorScheme.onSurface),
                     );
                   }
                   return Container();
@@ -809,7 +811,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
               getTitlesWidget: (double value, TitleMeta meta) {
                 return Text(
                   value.toInt().toString(),
-                  style: const TextStyle(fontSize: 10),
+                  style: TextStyle(fontSize: 10, color: colorScheme.onSurface),
                 );
               },
             ),
@@ -818,7 +820,17 @@ class _AnalysisPageState extends State<AnalysisPage> {
             sideTitles: SideTitles(showTitles: false),
           ),
         ),
-        gridData: FlGridData(show: true),
+        gridData: FlGridData(
+          show: true,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: colorScheme.outlineVariant,
+            strokeWidth: 1,
+          ),
+          getDrawingVerticalLine: (value) => FlLine(
+            color: colorScheme.outlineVariant,
+            strokeWidth: 1,
+          ),
+        ),
       ),
     );
   }
@@ -851,6 +863,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
   /// Baut pro Stall ein Balkendiagramm, in dem jedes angewählte Symptom und
   /// jedes angewählte Medikament als eigene Säule dargestellt wird.
   Future<List<Widget>> _buildBarChartsForStalls(List<String> stalls) async {
+    final colorScheme = Theme.of(context).colorScheme;
     final range = _selectedRange!;
     List<Widget> result = [];
 
@@ -873,7 +886,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
         groups.add(
           BarChartGroupData(
             x: groupIndex,
-            barRods: [BarChartRodData(toY: normValue)],
+            barRods: [
+              BarChartRodData(
+                toY: normValue,
+                color: colorScheme.primary,
+              ),
+            ],
           ),
         );
         itemLabels[groupIndex] = sym;
@@ -892,7 +910,12 @@ class _AnalysisPageState extends State<AnalysisPage> {
         groups.add(
           BarChartGroupData(
             x: groupIndex,
-            barRods: [BarChartRodData(toY: normValue)],
+            barRods: [
+              BarChartRodData(
+                toY: normValue,
+                color: colorScheme.secondary,
+              ),
+            ],
           ),
         );
         itemLabels[groupIndex] = med;
@@ -916,18 +939,28 @@ class _AnalysisPageState extends State<AnalysisPage> {
                       BarChartData(
                         barTouchData: BarTouchData(
                           touchTooltipData: BarTouchTooltipData(
-                            getTooltipColor: (group) => Colors.black87,
+                            getTooltipColor: (group) => colorScheme.inverseSurface,
                             getTooltipItem: (group, groupIndex, rod, rodIndex) {
                               final value = rod.toY.toStringAsFixed(2);
                               return BarTooltipItem(
                                 "$value%",
-                                const TextStyle(fontSize: 12, color: Colors.white),
+                                TextStyle(fontSize: 12, color: colorScheme.onInverseSurface),
                               );
                             },
                           ),
                         ),
                         barGroups: groups,
-                        gridData: FlGridData(show: true),
+                        gridData: FlGridData(
+                          show: true,
+                          getDrawingHorizontalLine: (value) => FlLine(
+                            color: colorScheme.outlineVariant,
+                            strokeWidth: 1,
+                          ),
+                          getDrawingVerticalLine: (value) => FlLine(
+                            color: colorScheme.outlineVariant,
+                            strokeWidth: 1,
+                          ),
+                        ),
                         titlesData: FlTitlesData(
                           // linke Beschriftungen beibehalten
                           leftTitles: AxisTitles(
@@ -936,7 +969,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                               reservedSize: 40,
                               getTitlesWidget: (v, m) => Text(
                                 "${v.toStringAsFixed(1)}%",
-                                style: const TextStyle(fontSize: 10),
+                                style: TextStyle(fontSize: 10, color: colorScheme.onSurface),
                               ),
                             ),
                           ),
@@ -961,7 +994,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
                                     quarterTurns: 3, // 90° gegen den Uhrzeigersinn
                                     child: Text(
                                       label,
-                                      style: const TextStyle(fontSize: 10),
+                                      style: TextStyle(fontSize: 10, color: colorScheme.onSurface),
                                       textAlign: TextAlign.left,
                                     ),
                                   ),
