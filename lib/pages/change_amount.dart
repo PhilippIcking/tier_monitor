@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart'; // Android, iOS, macOS
-import 'package:path/path.dart';
+import 'package:tier_monitor/db/app_database.dart';
 
 class Tierbewegung extends StatefulWidget {
   final String stallname;
@@ -50,15 +50,13 @@ class _TierbewegungState extends State<Tierbewegung> {
       return;
     }
 
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path, version: 1);
+    Database database = await openAppDatabase();
 
     final baselineResult = await database.rawQuery(
       "SELECT COALESCE(SUM(CASE "
           "WHEN zugang_abgang = 'Zugang' THEN anzahl "
           "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE stallname = ? AND date < ?",
+          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ? AND date < ?",
       [widget.stallname, selectedDate.toString()],
     );
     int baseline = (baselineResult.first['total'] as int?) ?? 0;
@@ -76,7 +74,7 @@ class _TierbewegungState extends State<Tierbewegung> {
     } else {
       final subsequentRecords = await database.rawQuery(
         "SELECT * FROM tierbewegungen "
-            "WHERE stallname = ? AND date >= ? "
+            "WHERE deleted_at IS NULL AND stallname = ? AND date >= ? "
             "ORDER BY date ASC, id ASC",
         [widget.stallname, selectedDate.toString()],
       );
@@ -141,17 +139,15 @@ class _TierbewegungState extends State<Tierbewegung> {
       'end': _isToggleOn ? 'Verendung' : '',
     };
 
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path, version: 1);
+    Database database = await openAppDatabase();
 
-    await database.insert('tierbewegungen', newRecord);
+    await database.insert('tierbewegungen', withSyncFieldsForInsert(newRecord));
 
     final totalResult = await database.rawQuery(
       "SELECT COALESCE(SUM(CASE "
           "WHEN zugang_abgang = 'Zugang' THEN anzahl "
           "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE stallname = ?",
+          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ?",
       [widget.stallname],
     );
     int cumulative = (totalResult.first['total'] as int?) ?? 0;

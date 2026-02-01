@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart'; //Android, IOS, MACOS
-import 'package:path/path.dart';
 import 'dart:convert';
+import 'package:tier_monitor/db/app_database.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -33,12 +33,12 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _loadFilterOptions() async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path);
+    Database database = await openAppDatabase();
 
     final stallRows = await database.rawQuery(
-      'SELECT stallname FROM $_currentTable GROUP BY stallname ORDER BY stallname ASC',
+      'SELECT stallname FROM $_currentTable '
+          'WHERE deleted_at IS NULL '
+          'GROUP BY stallname ORDER BY stallname ASC',
     );
     final List<String> stalls = [
       'Alle',
@@ -46,7 +46,8 @@ class _HistoryPageState extends State<HistoryPage> {
     ];
 
     final dateRow = await database.rawQuery(
-      'SELECT MIN(date) as minDate, MAX(date) as maxDate FROM $_currentTable',
+      'SELECT MIN(date) as minDate, MAX(date) as maxDate FROM $_currentTable '
+          'WHERE deleted_at IS NULL',
     );
     DateTime? minDate;
     DateTime? maxDate;
@@ -72,9 +73,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _fetchEntriesFromDatabase() async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path);
+    Database database = await openAppDatabase();
 
     final List<String> whereParts = [];
     final List<Object?> args = [];
@@ -83,6 +82,8 @@ class _HistoryPageState extends State<HistoryPage> {
       whereParts.add('stallname = ?');
       args.add(_selectedStall);
     }
+
+    whereParts.add('deleted_at IS NULL');
 
     if (_selectedRange != null) {
       final start = DateTime(
@@ -114,11 +115,13 @@ class _HistoryPageState extends State<HistoryPage> {
       } else if (_selectedType == 'Behandelt mit Medikament') {
         whereParts.add(
           "("
+          "("
           "medikament IS NOT NULL AND TRIM(medikament) NOT IN ('', '[]')"
           ") OR ("
           "second_medikament IS NOT NULL AND TRIM(second_medikament) NOT IN ('', '[]')"
           ") OR ("
           "third_medikament IS NOT NULL AND TRIM(third_medikament) NOT IN ('', '[]')"
+          ")"
           ")",
         );
       }
@@ -141,15 +144,18 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _deleteEntry(int index) async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path);
+    Database database = await openAppDatabase();
 
     // ID des zu löschenden Eintrags abrufen
     int entryId = _entries[index]['id'];
 
     // Abhängig von der aktuellen Tabelle den Eintrag löschen
-    await database.delete(_currentTable, where: 'id = ?', whereArgs: [entryId]);
+    await database.update(
+      _currentTable,
+      withTombstone(),
+      where: 'id = ?',
+      whereArgs: [entryId],
+    );
 
     // Aktualisierte Einträge aus der aktuellen Tabelle abrufen
     await _fetchEntriesFromDatabase();

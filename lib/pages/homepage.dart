@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart'; // Android, iOS, macOS
-import 'package:path/path.dart';
 import 'package:excel/excel.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dart:io';
 import 'package:tier_monitor/pages/second_layer.dart';
+import 'package:tier_monitor/db/app_database.dart';
 
 class WidgetList extends StatefulWidget {
   const WidgetList({super.key});
@@ -27,43 +27,8 @@ class _WidgetListState extends State<WidgetList> {
   }
 
   Future<void> _initializeDatabase() async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-
-    await openDatabase(
-      path,
-      version: 1,
-      onCreate: (Database db, int version) async {
-        await db.execute('CREATE TABLE tierdoku ('
-            'id INTEGER PRIMARY KEY,'
-            'stallname TEXT,'
-            'bucht TEXT,'
-            'symptome TEXT,'
-            'medikament TEXT,'
-            'farbe TEXT,'
-            'comment TEXT,'
-            'date TEXT,'
-            'second_medikament TEXT,'
-            'second_comment TEXT,'
-            'second_date TEXT,'
-            'third_medikament TEXT,'
-            'third_comment TEXT,'
-            'third_date TEXT,'
-            'end_comment TEXT,'
-            'end_date TEXT'
-            ')');
-
-        await db.execute('CREATE TABLE tierbewegungen ('
-            'id INTEGER PRIMARY KEY,'
-            'stallname TEXT,'
-            'anzahl INTEGER,'
-            'zugang_abgang TEXT,'
-            'comment TEXT,'
-            'date TEXT,'
-            'end TEXT'
-            ')');
-      },
-    );
+    final db = await openAppDatabase();
+    await db.close();
   }
 
   void _loadWidgetNames() async {
@@ -96,14 +61,12 @@ class _WidgetListState extends State<WidgetList> {
   Future<void> _exportData(BuildContext context) async {
     final currentContext = context;
     try {
-      var databasesPath = await getDatabasesPath();
-      String path = join(databasesPath, 'my_database.db');
-      Database database = await openDatabase(path, version: 1);
+      Database database = await openAppDatabase();
 
       List<Map<String, dynamic>> tierdokuRecords =
-      await database.query('tierdoku');
+      await database.query('tierdoku', where: 'deleted_at IS NULL');
       List<Map<String, dynamic>> tierbewegungenRecords =
-      await database.query('tierbewegungen');
+      await database.query('tierbewegungen', where: 'deleted_at IS NULL');
 
       var excel = Excel.createExcel();
       var sheet1 = excel['Tierdoku'];

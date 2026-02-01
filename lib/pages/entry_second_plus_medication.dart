@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:tier_monitor/db/app_database.dart';
 
 /// Seite für Zweitmedikation
 class EntryPageSecondMedikation extends StatefulWidget {
@@ -93,16 +93,14 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
 
   Future<void> updateEntry(
       int entryId, String field, List<String> values, DateTime date) async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path);
+    Database database = await openAppDatabase();
 
     await database.update(
       'tierdoku',
-      {
+      withSyncFieldsForUpdate({
         field: values.join(', '),
         '${field.split("_")[0]}_date': date.toString(),
-      },
+      }),
       where: 'id = ?',
       whereArgs: [entryId],
     );
@@ -312,16 +310,14 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
 
   Future<void> updateEntry(
       int entryId, String field, List<String> values, DateTime date) async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path);
+    Database database = await openAppDatabase();
 
     await database.update(
       'tierdoku',
-      {
+      withSyncFieldsForUpdate({
         field: values.join(', '),
         '${field.split("_")[0]}_date': date.toString(),
-      },
+      }),
       where: 'id = ?',
       whereArgs: [entryId],
     );
@@ -470,8 +466,7 @@ class _EntryPageEndState extends State<EntryPageEnd> {
   }
 
   Future<Database> _openDb() async {
-    final path = join(await getDatabasesPath(), 'my_database.db');
-    return openDatabase(path, version: 1);
+    return openAppDatabase();
   }
 
   Future<int> _getBaselineBeforeDate(
@@ -480,7 +475,7 @@ class _EntryPageEndState extends State<EntryPageEnd> {
       "SELECT COALESCE(SUM(CASE "
           "WHEN zugang_abgang = 'Zugang' THEN anzahl "
           "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE stallname = ? AND date < ?",
+          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ? AND date < ?",
       [stallName, date.toString()],
     );
     return (result.first['total'] as int?) ?? 0;
@@ -499,7 +494,7 @@ class _EntryPageEndState extends State<EntryPageEnd> {
 
     final subsequentRecords = await db.rawQuery(
       "SELECT * FROM tierbewegungen "
-          "WHERE stallname = ? AND date >= ? "
+          "WHERE deleted_at IS NULL AND stallname = ? AND date >= ? "
           "ORDER BY date ASC, id ASC",
       [stallName, date.toString()],
     );
@@ -515,7 +510,7 @@ class _EntryPageEndState extends State<EntryPageEnd> {
       "SELECT COALESCE(SUM(CASE "
           "WHEN zugang_abgang = 'Zugang' THEN anzahl "
           "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE stallname = ?",
+          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ?",
       [stallName],
     );
     final total = (result.first['total'] as int?) ?? 0;
@@ -528,10 +523,10 @@ class _EntryPageEndState extends State<EntryPageEnd> {
     final db = await _openDb();
     await db.update(
       'tierdoku',
-      {
+      withSyncFieldsForUpdate({
         'end_comment': comment,
         'end_date': date.toString(),
-      },
+      }),
       where: 'id = ?',
       whereArgs: [entryId],
     );
@@ -557,15 +552,18 @@ class _EntryPageEndState extends State<EntryPageEnd> {
       return;
     }
 
-    await db.insert('tierbewegungen', {
-      'stallname': widget.stallname,
-      'anzahl': 1,
-      'zugang_abgang': 'Abgang',
-      'comment': 'Verendung'
-          '${_selectedComment.isNotEmpty ? ': $_selectedComment' : ''}',
-      'date': selectedDate.toString(),
-      'end': 'Verendung',
-    });
+    await db.insert(
+      'tierbewegungen',
+      withSyncFieldsForInsert({
+        'stallname': widget.stallname,
+        'anzahl': 1,
+        'zugang_abgang': 'Abgang',
+        'comment': 'Verendung'
+            '${_selectedComment.isNotEmpty ? ': $_selectedComment' : ''}',
+        'date': selectedDate.toString(),
+        'end': 'Verendung',
+      }),
+    );
 
     await _refreshSharedCountFromDb(db, widget.stallname);
     await db.close();

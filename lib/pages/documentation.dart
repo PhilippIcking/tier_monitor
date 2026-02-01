@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 import 'dart:convert';
+import 'package:tier_monitor/db/app_database.dart';
 
 class Tiermassnahme extends StatefulWidget {
   final String stallname;
@@ -69,18 +68,19 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
     final comment = _selectedComment;
     final date = selectedDate.toString();
 
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path, version: 1);
-    await database.insert('tierdoku', {
-      'stallname': widget.stallname,
-      'bucht': bucht,
-      'symptome': symptome,
-      'medikament': medikamente,
-      'farbe': farbe,
-      'comment': comment,
-      'date': date,
-    });
+    final database = await openAppDatabase();
+    await database.insert(
+      'tierdoku',
+      withSyncFieldsForInsert({
+        'stallname': widget.stallname,
+        'bucht': bucht,
+        'symptome': symptome,
+        'medikament': medikamente,
+        'farbe': farbe,
+        'comment': comment,
+        'date': date,
+      }),
+    );
     await database.close();
     _showFeedback(context);
   }

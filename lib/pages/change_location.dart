@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:tier_monitor/db/app_database.dart';
 
 class ChangeLocation extends StatefulWidget {
   final int entryId;
@@ -59,7 +59,7 @@ class _ChangeLocationState extends State<ChangeLocation> {
       "SELECT COALESCE(SUM(CASE "
           "WHEN zugang_abgang = 'Zugang' THEN anzahl "
           "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE stallname = ? AND date < ?",
+          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ? AND date < ?",
       [stallName, date.toString()],
     );
     return (result.first['total'] as int?) ?? 0;
@@ -78,7 +78,7 @@ class _ChangeLocationState extends State<ChangeLocation> {
 
     final subsequentRecords = await db.rawQuery(
       "SELECT * FROM tierbewegungen "
-          "WHERE stallname = ? AND date >= ? "
+          "WHERE deleted_at IS NULL AND stallname = ? AND date >= ? "
           "ORDER BY date ASC, id ASC",
       [stallName, date.toString()],
     );
@@ -94,7 +94,7 @@ class _ChangeLocationState extends State<ChangeLocation> {
       "SELECT COALESCE(SUM(CASE "
           "WHEN zugang_abgang = 'Zugang' THEN anzahl "
           "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE stallname = ?",
+          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ?",
       [stallName],
     );
     final total = (result.first['total'] as int?) ?? 0;
@@ -109,9 +109,7 @@ class _ChangeLocationState extends State<ChangeLocation> {
       DateTime date,
       bool update,
       ) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'my_database.db');
-    final db = await openDatabase(path, version: 1);
+    final db = await openAppDatabase();
 
     if (update) {
       final wouldGoNegative = await _wouldGoNegativeAfterDelta(
@@ -129,24 +127,30 @@ class _ChangeLocationState extends State<ChangeLocation> {
         await db.close();
         return;
       }
-      await db.insert('tierbewegungen', {
-        'stallname': widget.stallname,
-        'anzahl': 1,
-        'zugang_abgang': 'Abgang',
-        'comment': 'Umgestallt nach ${newLocation.replaceAll("#", "-")}',
-        'date': date.toString(),
-        'end': '',
-      });
+      await db.insert(
+        'tierbewegungen',
+        withSyncFieldsForInsert({
+          'stallname': widget.stallname,
+          'anzahl': 1,
+          'zugang_abgang': 'Abgang',
+          'comment': 'Umgestallt nach ${newLocation.replaceAll("#", "-")}',
+          'date': date.toString(),
+          'end': '',
+        }),
+      );
       await _refreshSharedCountFromDb(db, widget.stallname);
 
-      await db.insert('tierbewegungen', {
-        'stallname': newLocation,
-        'anzahl': 1,
-        'zugang_abgang': 'Zugang',
-        'comment': 'Umgestallt von ${widget.stallname.replaceAll("#", "-")}',
-        'date': date.toString(),
-        'end': '',
-      });
+      await db.insert(
+        'tierbewegungen',
+        withSyncFieldsForInsert({
+          'stallname': newLocation,
+          'anzahl': 1,
+          'zugang_abgang': 'Zugang',
+          'comment': 'Umgestallt von ${widget.stallname.replaceAll("#", "-")}',
+          'date': date.toString(),
+          'end': '',
+        }),
+      );
       await _refreshSharedCountFromDb(db, newLocation);
     }
 
@@ -165,10 +169,10 @@ class _ChangeLocationState extends State<ChangeLocation> {
         'nach ${newLocation.replaceAll("#", "-")}';
     await db.update(
       'tierdoku',
-      {
+      withSyncFieldsForUpdate({
         'stallname': newLocation,
         'comment': newComment,
-      },
+      }),
       where: 'id = ?',
       whereArgs: [entryId],
     );

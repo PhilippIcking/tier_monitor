@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path/path.dart' as p;
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:tier_monitor/db/app_database.dart';
 
 class AnalysisPage extends StatefulWidget {
   const AnalysisPage({Key? key}) : super(key: key);
@@ -55,9 +55,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
     });
 
     // 1) Datenbank öffnen
-    var databasesPath = await getDatabasesPath();
-    String path = p.join(databasesPath, 'my_database.db');
-    _db = await openDatabase(path);
+    _db = await openAppDatabase();
 
     // 2) Verfügbaren Datumsbereich ermitteln
     await _loadAvailableDateRange();
@@ -81,8 +79,14 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   // Lädt den Datumsbereich, in dem tierbewegungen oder tierdoku Einträge haben.
   Future<void> _loadAvailableDateRange() async {
-    final rawMoves = await _db.query('tierbewegungen');
-    final rawDoku = await _db.query('tierdoku');
+    final rawMoves = await _db.query(
+      'tierbewegungen',
+      where: 'deleted_at IS NULL',
+    );
+    final rawDoku = await _db.query(
+      'tierdoku',
+      where: 'deleted_at IS NULL',
+    );
 
     DateTime? minDate;
     DateTime? maxDate;
@@ -108,8 +112,14 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
   // Lädt alle Betriebe+Ställe aus stallname ("Betrieb#Stall")
   Future<void> _loadBetriebeUndStalls() async {
-    final rawMoves = await _db.query('tierbewegungen');
-    final rawDoku = await _db.query('tierdoku');
+    final rawMoves = await _db.query(
+      'tierbewegungen',
+      where: 'deleted_at IS NULL',
+    );
+    final rawDoku = await _db.query(
+      'tierdoku',
+      where: 'deleted_at IS NULL',
+    );
 
     Set<String> betriebeSet = {};
     Map<String, Set<String>> stallMap = {};
@@ -159,7 +169,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
     String full = '$betrieb#$stall';
     final rows = await _db.query(
       'tierbewegungen',
-      where: 'stallname = ?',
+      where: 'deleted_at IS NULL AND stallname = ?',
       whereArgs: [full],
     );
 
@@ -268,7 +278,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
       "SELECT COALESCE(SUM(CASE "
           "WHEN zugang_abgang = 'Zugang' THEN anzahl "
           "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE stallname = ? AND date < ?",
+          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ? AND date < ?",
       [fullName, startDate.toString()],
     );
     return (result.first['total'] as int?) ?? 0;
@@ -357,7 +367,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
 
     final rows = await _db.query(
       'tierdoku',
-      where: 'stallname = ?',
+      where: 'deleted_at IS NULL AND stallname = ?',
       whereArgs: [full],
     );
 

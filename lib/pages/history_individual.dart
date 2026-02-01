@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart'; //Android, IOS, MACOS
-import 'package:path/path.dart';
 import 'package:tier_monitor/pages/entry_second_plus_medication.dart';
 import 'package:tier_monitor/pages/change_location.dart';
 import 'dart:convert';
+import 'package:tier_monitor/db/app_database.dart';
 
 
 class HistoryPageSecondMedikation extends StatefulWidget {
@@ -29,13 +29,13 @@ class _HistoryPageSecondMedikationState
   }
 
   Future<void> _fetchEntriesFromDatabase() async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path);
+    Database database = await openAppDatabase();
 
     // Abhängig von der aktuellen Tabelle die entsprechenden Einträge abrufen
     List<Map<String, dynamic>> entries = await database.rawQuery(
-      'SELECT * FROM $_currentTable WHERE stallname = ? ORDER BY id DESC LIMIT 50',
+      'SELECT * FROM $_currentTable '
+          'WHERE deleted_at IS NULL AND stallname = ? '
+          'ORDER BY id DESC LIMIT 50',
       [widget.stallname],
     );
 
@@ -47,15 +47,18 @@ class _HistoryPageSecondMedikationState
   }
 
   Future<void> _deleteEntry(int index) async {
-    var databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'my_database.db');
-    Database database = await openDatabase(path);
+    Database database = await openAppDatabase();
 
     // ID des zu löschenden Eintrags abrufen
     int entryId = _entries[index]['id'];
 
     // Abhängig von der aktuellen Tabelle den Eintrag löschen
-    await database.delete(_currentTable, where: 'id = ?', whereArgs: [entryId]);
+    await database.update(
+      _currentTable,
+      withTombstone(),
+      where: 'id = ?',
+      whereArgs: [entryId],
+    );
 
     // Aktualisierte Einträge aus der aktuellen Tabelle abrufen
     await _fetchEntriesFromDatabase();

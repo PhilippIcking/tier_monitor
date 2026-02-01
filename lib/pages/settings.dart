@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tier_monitor/pages/self_hosted_sync.dart';
 
 class SettingsPage extends StatefulWidget {
   final ThemeMode themeMode;
@@ -101,6 +102,24 @@ class _SettingsPageState extends State<SettingsPage>
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
+            Card(
+              elevation: 2,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: ListTile(
+                leading: const Icon(Icons.cloud_sync),
+                title: const Text('Self-Hosted Sync'),
+                subtitle: const Text('Lokaler Server im eigenen Netzwerk'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SelfHostedSyncPage(),
+                    ),
+                  );
+                },
+              ),
+            ),
+
             // Symptome
             _buildPanel(
               title: 'Symptome',
