@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  tier-monitor-sync:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Optional: set to require a token from the app via X-API-Token
+      API_TOKEN: ""
+      DB_PATH: /app/data/data.db
+    volumes:
+      - ./data:/app/data
