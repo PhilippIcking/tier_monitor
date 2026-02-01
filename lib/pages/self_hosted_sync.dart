@@ -20,6 +20,10 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
   static const String _deviceNameKey = 'selfhosted_device_name';
   static const String _lastUploadKey = 'selfhosted_last_upload_at';
   static const String _lastDownloadKey = 'selfhosted_last_download_at';
+  static const String _mergeSymptomsKey = 'selfhosted_merge_symptoms';
+  static const String _mergeMedicationsKey = 'selfhosted_merge_medications';
+  static const String _mergeWidgetsKey = 'selfhosted_merge_widgets';
+  static const String _mergeBuchtenKey = 'selfhosted_merge_buchten';
 
   final TextEditingController _baseUrlController = TextEditingController();
   final TextEditingController _apiTokenController = TextEditingController();
@@ -29,6 +33,10 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
   bool _testing = false;
   bool _syncBusy = false;
   bool _summaryLoading = false;
+  bool _mergeSymptoms = false;
+  bool _mergeMedications = false;
+  bool _mergeWidgets = false;
+  bool _mergeBuchten = false;
   String? _lastTestResult;
   String? _localMaxDokuDate;
   String? _localMaxMoveDate;
@@ -60,6 +68,10 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
     _deviceNameController.text = prefs.getString(_deviceNameKey) ?? '';
     _localLastUploadAt = prefs.getString(_lastUploadKey);
     _localLastDownloadAt = prefs.getString(_lastDownloadKey);
+    _mergeSymptoms = prefs.getBool(_mergeSymptomsKey) ?? false;
+    _mergeMedications = prefs.getBool(_mergeMedicationsKey) ?? false;
+    _mergeWidgets = prefs.getBool(_mergeWidgetsKey) ?? false;
+    _mergeBuchten = prefs.getBool(_mergeBuchtenKey) ?? false;
     setState(() {});
     await _refreshStatus();
   }
@@ -407,6 +419,21 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
         _serverMaxMoveDate = data['max_date_tierbewegungen'] as String?;
       });
       await _loadLocalSummary();
+      final mergeResult = await _mergePreferencesFromDb(showSnack: false);
+      if (mounted && mergeResult.totalAdded > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'UI aktualisiert: '
+              '+${mergeResult.symptomsAdded} Symptome, '
+              '+${mergeResult.medicationsAdded} Medikamente, '
+              '+${mergeResult.buchtenAdded} Buchten, '
+              '+${mergeResult.widgetsAdded} Betriebe, '
+              '+${mergeResult.stallsAdded} Ställe.',
+            ),
+          ),
+        );
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Download abgeschlossen.')),
@@ -439,6 +466,185 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
     }
   }
 
+  Future<_MergeResult> _mergePreferencesFromDb({bool showSnack = true}) async {
+    if (!_mergeSymptoms && !_mergeMedications && !_mergeWidgets && !_mergeBuchten) {
+      return const _MergeResult();
+    }
+
+    final db = await openAppDatabase();
+    final prefs = await SharedPreferences.getInstance();
+    var result = const _MergeResult();
+
+    try {
+      if (_mergeSymptoms || _mergeMedications || _mergeBuchten) {
+        final rows = await db.query(
+          'tierdoku',
+          columns: [
+            'symptome',
+            'medikament',
+            'second_medikament',
+            'third_medikament',
+            'bucht',
+          ],
+          where: 'deleted_at IS NULL',
+        );
+
+        if (_mergeSymptoms) {
+          final existing = prefs.getStringList('symptoms') ?? [];
+          final merged = existing.toSet();
+          for (final row in rows) {
+            final values = _extractJsonValues(row['symptome'] as String?);
+            for (final value in values) {
+              if (merged.add(value)) {
+                result = result.copyWith(symptomsAdded: result.symptomsAdded + 1);
+              }
+            }
+          }
+          if (merged.length != existing.length) {
+            final list = merged.toList()..sort();
+            await prefs.setStringList('symptoms', list);
+          }
+        }
+
+        if (_mergeMedications) {
+          final existing = prefs.getStringList('medications') ?? [];
+          final merged = existing.toSet();
+          for (final row in rows) {
+            for (final key in [
+              'medikament',
+              'second_medikament',
+              'third_medikament',
+            ]) {
+              final values = _extractJsonValues(row[key] as String?);
+              for (final value in values) {
+                if (merged.add(value)) {
+                  result = result.copyWith(
+                    medicationsAdded: result.medicationsAdded + 1,
+                  );
+                }
+              }
+            }
+          }
+          if (merged.length != existing.length) {
+            final list = merged.toList()..sort();
+            await prefs.setStringList('medications', list);
+          }
+        }
+
+        if (_mergeBuchten) {
+          final existing = prefs.getStringList('buchten') ?? [];
+          final merged = existing.toSet();
+          for (final row in rows) {
+            final values = _splitFallback(row['bucht']?.toString() ?? '');
+            for (final value in values) {
+              if (merged.add(value)) {
+                result = result.copyWith(buchtenAdded: result.buchtenAdded + 1);
+              }
+            }
+          }
+          if (merged.length != existing.length) {
+            final list = merged.toList()..sort();
+            await prefs.setStringList('buchten', list);
+          }
+        }
+      }
+
+      if (_mergeWidgets) {
+        final rows = await db.rawQuery(
+          'SELECT stallname FROM tierdoku WHERE deleted_at IS NULL '
+          'UNION '
+          'SELECT stallname FROM tierbewegungen WHERE deleted_at IS NULL',
+        );
+        final widgetNames = (prefs.getStringList('widget_names') ?? []).toSet();
+        final Map<String, Set<String>> stallMap = {};
+
+        for (final row in rows) {
+          final stallname = row['stallname'] as String?;
+          if (stallname == null || stallname.isEmpty) continue;
+          final parts = stallname.split('#');
+          if (parts.length < 2) continue;
+          final betrieb = parts[0].trim();
+          if (betrieb.isEmpty) continue;
+          stallMap.putIfAbsent(betrieb, () => <String>{}).add(stallname);
+        }
+
+        for (final entry in stallMap.entries) {
+          final betrieb = entry.key;
+          if (widgetNames.add(betrieb)) {
+            result = result.copyWith(widgetsAdded: result.widgetsAdded + 1);
+          }
+          final existingStalls = prefs.getStringList(betrieb) ?? [];
+          final mergedStalls = existingStalls.toSet();
+          for (final stall in entry.value) {
+            if (mergedStalls.add(stall)) {
+              result = result.copyWith(stallsAdded: result.stallsAdded + 1);
+            }
+          }
+          if (mergedStalls.length != existingStalls.length) {
+            final list = mergedStalls.toList()..sort();
+            await prefs.setStringList(betrieb, list);
+          }
+        }
+
+        if (widgetNames.length != (prefs.getStringList('widget_names') ?? []).length) {
+          final list = widgetNames.toList()..sort();
+          await prefs.setStringList('widget_names', list);
+        }
+      }
+    } finally {
+      await db.close();
+    }
+
+    if (showSnack && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'UI aktualisiert: '
+            '+${result.symptomsAdded} Symptome, '
+            '+${result.medicationsAdded} Medikamente, '
+            '+${result.buchtenAdded} Buchten, '
+            '+${result.widgetsAdded} Betriebe, '
+            '+${result.stallsAdded} Ställe.',
+          ),
+        ),
+      );
+    }
+
+    return result;
+  }
+
+  List<String> _extractJsonValues(String? raw) {
+    if (raw == null) return [];
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty || trimmed == '[]') return [];
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is List) {
+        return decoded
+            .map((value) => value?.toString().trim() ?? '')
+            .where((value) => value.isNotEmpty)
+            .toList();
+      }
+      if (decoded is String) {
+        return _splitFallback(decoded);
+      }
+    } catch (_) {
+      return _splitFallback(trimmed);
+    }
+    return [];
+  }
+
+  List<String> _splitFallback(String value) {
+    if (value.contains(',')) {
+      return value
+          .split(',')
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .toList();
+    }
+    return value.trim().isEmpty ? [] : [value.trim()];
+  }
+
   bool _isServerNewer(String? server, String? local) {
     if (server == null || server.isEmpty) return false;
     if (local == null || local.isEmpty) return true;
@@ -455,6 +661,11 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final baseUrlEmpty = _baseUrlController.text.trim().isEmpty;
     final syncDisabled = !_enabled || baseUrlEmpty || _syncBusy;
+    final mergeDisabled = _syncBusy ||
+        (!_mergeSymptoms &&
+            !_mergeMedications &&
+            !_mergeWidgets &&
+            !_mergeBuchten);
 
     return Scaffold(
       appBar: AppBar(
@@ -634,6 +845,75 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
           const SizedBox(height: 12),
           Card(
             elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'UI aus Datenbank zusammenführen',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _mergeSymptoms,
+                    title: const Text('Symptome'),
+                    onChanged: (value) {
+                      final enabled = value ?? false;
+                      setState(() => _mergeSymptoms = enabled);
+                      _saveBool(_mergeSymptomsKey, enabled);
+                    },
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _mergeMedications,
+                    title: const Text('Medikamente'),
+                    onChanged: (value) {
+                      final enabled = value ?? false;
+                      setState(() => _mergeMedications = enabled);
+                      _saveBool(_mergeMedicationsKey, enabled);
+                    },
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _mergeWidgets,
+                    title: const Text('Homepage-Widgets'),
+                    subtitle: const Text(
+                      'Betriebe und Ställe aus vorhandenen Einträgen.',
+                    ),
+                    onChanged: (value) {
+                      final enabled = value ?? false;
+                      setState(() => _mergeWidgets = enabled);
+                      _saveBool(_mergeWidgetsKey, enabled);
+                    },
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _mergeBuchten,
+                    title: const Text('Buchten'),
+                    onChanged: (value) {
+                      final enabled = value ?? false;
+                      setState(() => _mergeBuchten = enabled);
+                      _saveBool(_mergeBuchtenKey, enabled);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: mergeDisabled ? null : _mergePreferencesFromDb,
+                      icon: const Icon(Icons.merge),
+                      label: const Text('Aus Datenbank übernehmen'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 2,
             child: ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('Hinweis'),
@@ -648,6 +928,41 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MergeResult {
+  final int symptomsAdded;
+  final int medicationsAdded;
+  final int buchtenAdded;
+  final int widgetsAdded;
+  final int stallsAdded;
+
+  const _MergeResult({
+    this.symptomsAdded = 0,
+    this.medicationsAdded = 0,
+    this.buchtenAdded = 0,
+    this.widgetsAdded = 0,
+    this.stallsAdded = 0,
+  });
+
+  int get totalAdded =>
+      symptomsAdded + medicationsAdded + buchtenAdded + widgetsAdded + stallsAdded;
+
+  _MergeResult copyWith({
+    int? symptomsAdded,
+    int? medicationsAdded,
+    int? buchtenAdded,
+    int? widgetsAdded,
+    int? stallsAdded,
+  }) {
+    return _MergeResult(
+      symptomsAdded: symptomsAdded ?? this.symptomsAdded,
+      medicationsAdded: medicationsAdded ?? this.medicationsAdded,
+      buchtenAdded: buchtenAdded ?? this.buchtenAdded,
+      widgetsAdded: widgetsAdded ?? this.widgetsAdded,
+      stallsAdded: stallsAdded ?? this.stallsAdded,
     );
   }
 }
