@@ -401,29 +401,6 @@ class _AnalysisPageState extends State<AnalysisPage> {
     return counter;
   }
 
-  /// Liefert normierte Häufigkeit in Prozent = (count / durchschnittlicher Tierbestand)*100
-  Future<double> _fetchNormalizedCount(
-      String betrieb,
-      String stall,
-      DateTime startDate,
-      DateTime endDate,
-      List<String> items,
-      bool isSymptom,
-      ) async {
-    double avg = await _fetchAverageTierbestandForStall(betrieb, stall, startDate, endDate);
-    if (avg == 0) return 0.0;
-
-    int c = await _countDokuEntriesForStall(
-      betrieb,
-      stall,
-      startDate,
-      endDate,
-      items,
-      isSymptom ? 'symptom' : 'medikament',
-    );
-    return (c / avg) * 100.0;
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -881,18 +858,28 @@ class _AnalysisPageState extends State<AnalysisPage> {
       List<BarChartGroupData> groups = [];
       // Hier speichern wir die Beschriftungen der x-Achse (Itemnamen)
       Map<int, String> itemLabels = {};
+      // Absolute Treffer pro Balken (für Tooltip)
+      Map<int, int> itemCounts = {};
       int groupIndex = 0;
+      final avgTierbestand = await _fetchAverageTierbestandForStall(
+        _selectedBetrieb,
+        stall,
+        range.start,
+        range.end,
+      );
 
       // Für jedes ausgewählte Symptom
       for (var sym in _selectedSymptoms) {
-        double normValue = await _fetchNormalizedCount(
+        final count = await _countDokuEntriesForStall(
           _selectedBetrieb,
           stall,
           range.start,
           range.end,
           [sym],
-          true,
+          'symptom',
         );
+        final double normValue =
+            avgTierbestand == 0 ? 0.0 : (count / avgTierbestand) * 100.0;
         groups.add(
           BarChartGroupData(
             x: groupIndex,
@@ -905,18 +892,21 @@ class _AnalysisPageState extends State<AnalysisPage> {
           ),
         );
         itemLabels[groupIndex] = sym;
+        itemCounts[groupIndex] = count;
         groupIndex++;
       }
       // Für jedes ausgewählte Medikament
       for (var med in _selectedMedications) {
-        double normValue = await _fetchNormalizedCount(
+        final count = await _countDokuEntriesForStall(
           _selectedBetrieb,
           stall,
           range.start,
           range.end,
           [med],
-          false,
+          'medikament',
         );
+        final double normValue =
+            avgTierbestand == 0 ? 0.0 : (count / avgTierbestand) * 100.0;
         groups.add(
           BarChartGroupData(
             x: groupIndex,
@@ -929,6 +919,7 @@ class _AnalysisPageState extends State<AnalysisPage> {
           ),
         );
         itemLabels[groupIndex] = med;
+        itemCounts[groupIndex] = count;
         groupIndex++;
       }
 
@@ -952,8 +943,9 @@ class _AnalysisPageState extends State<AnalysisPage> {
                             getTooltipColor: (group) => colorScheme.inverseSurface,
                             getTooltipItem: (group, groupIndex, rod, rodIndex) {
                               final value = rod.toY.toStringAsFixed(2);
+                              final absValue = itemCounts[group.x] ?? 0;
                               return BarTooltipItem(
-                                "$value%",
+                                "$value% (n=$absValue)",
                                 TextStyle(fontSize: 12, color: colorScheme.onInverseSurface),
                               );
                             },
