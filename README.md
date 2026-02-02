@@ -1,19 +1,23 @@
 # Tier Monitor
 
-[![made-with-python](https://img.shields.io/badge/Made%20With-Flutter-blue)](https://flutter.dev/)
+[![made-with-flutter](https://img.shields.io/badge/Made%20With-Flutter-blue)](https://flutter.dev/)
 
 Tier Monitor ist eine Open-Source-App, mit der sich Tierbewegungen und Bestandsverläufe einfach digitalisieren lassen.
 Die App ermöglicht es, Symptome, Medikationen und Tierbewegungen zu erfassen und diese entweder als Excel-Datei zu exportieren oder direkt in der App zu analysieren.
-Alle Daten werden ausschließlich lokal auf dem Gerät gespeichert.
+Alle Daten werden standardmäßig lokal auf dem Gerät gespeichert. Optional kann ein Self-Hosted-Server für die Synchronisierung im eigenen Netzwerk genutzt werden.
 
 ### Installation
-Die App kann [hier](https://play.google.com/store/apps/details?id=de.icking_schmauck.tier_monitor&pcampaignid=web_share) im Playstore heruntergeladen werden. Alternativ [hier](https://github.com/PhilippIcking/tier_monitor/tree/master/android_APK), für die Android-APK.
+Die App kann [hier](https://play.google.com/store/apps/details?id=de.icking_schmauck.tier_monitor&pcampaignid=web_share) im Playstore heruntergeladen werden.
 
 ### Anleitung
 1. Lade die APK-Datei herunter und installiere sie auf deinem Android-Gerät.
 2. Öffne die App und beginne mit der Eingabe deiner Daten.
 3. Verwende die Exportfunktion, um deine Daten als Excel-Datei zu speichern.
-4. Führe regelmäßige manuelle Backups durch, um deine Daten vor Verlust zu sichern.
+4. Führe manuelle Backups durch, um deine Daten vor Verlust zu sichern oder nutze einen Self-Hosted-Server.
+
+### Self-Hosted Sync
+Für die optionale Synchronisierung im eigenen Netzwerk steht ein Self-Hosted-Server zur Verfügung.
+Eine Anleitung zur Einrichtung findest du im Ordner [Self-Hosted-Server](https://github.com/PhilippIcking/tier_monitor/blob/master/lib/self_hosted_server/README.md).
 
 ### Lizenz
 Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der [Lizenzdatei](https://github.com/PhilippIcking/tier_monitor/blob/master/LICENSE.mos).
