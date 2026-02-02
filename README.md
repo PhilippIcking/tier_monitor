@@ -27,7 +27,7 @@ Die App wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest
 <img src="readme_files%2FScreenshot 2025-06-08 175150.png" width="260" height="538"/>&nbsp;<img src="readme_files%2FScreenshot 2025-06-08 181303.png" width="260" height="538"/>&nbsp;&nbsp;<img src="readme_files%2FScreenshot 2025-06-08 174548.png" width="260" height="538"/><br></br>
 
 ### Probleme und Feedback
-Melde Probleme oder gib Feedback auf der [Issue-Tracker-Seite](https://github.com/PhilippIcking/tier_monitor/issues). Alternativ Bugs und Verbesserungsvorschläge auch an tiermonitor@icking-schmauck.de
+Melde Probleme oder gib Feedback auf der [Issue-Tracker-Seite](https://github.com/PhilippIcking/tier_monitor/issues).
 
 
 ---
