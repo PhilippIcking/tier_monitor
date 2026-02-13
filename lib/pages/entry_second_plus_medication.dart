@@ -115,94 +115,113 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
         title: const Text('Zweitmedikation eintragen'),
         elevation: 5.0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Behandlung',
-                border: OutlineInputBorder(),
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-              ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_selectedMedikamente.isNotEmpty)
-                    Wrap(
-                      spacing: 8.0,
-                      runSpacing: 4.0,
-                      children: _selectedMedikamente.map((medikament) {
-                        return Chip(
-                          label: Text(medikament),
-                          deleteIcon: const Icon(Icons.close),
-                          onDeleted: () {
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Behandlung',
+                      border: OutlineInputBorder(),
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_selectedMedikamente.isNotEmpty)
+                          Wrap(
+                            spacing: 8.0,
+                            runSpacing: 4.0,
+                            children: _selectedMedikamente.map((medikament) {
+                              return Chip(
+                                label: Text(medikament),
+                                deleteIcon: const Icon(Icons.close),
+                                onDeleted: () {
+                                  setState(() {
+                                    _selectedMedikamente.remove(medikament);
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        DropdownButton<String>(
+                          value: _dropdownMedikamentValue,
+                          isExpanded: true,
+                          underline: Container(),
+                          items: [
+                            ..._medikamente.map((medikament) => DropdownMenuItem(
+                                  value: medikament,
+                                  child: Text(medikament),
+                                )),
+                            DropdownMenuItem<String>(
+                              value: '__add_new_medikament__',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.add, color: colorScheme.secondary),
+                                  SizedBox(width: 8),
+                                  Text('Neues Medikament hinzufügen'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            if (value == '__add_new_medikament__') {
+                              await _addNewMedication(context);
+                            } else if (!_selectedMedikamente.contains(value)) {
+                              setState(() {
+                                _selectedMedikamente.add(value);
+                              });
+                            }
                             setState(() {
-                              _selectedMedikamente.remove(medikament);
+                              _dropdownMedikamentValue = null;
                             });
                           },
-                        );
-                      }).toList(),
-                    ),
-                  DropdownButton<String>(
-                    value: _dropdownMedikamentValue,
-                    isExpanded: true,
-                    underline: Container(),
-                    items: [
-                      ..._medikamente.map((medikament) => DropdownMenuItem(
-                        value: medikament,
-                        child: Text(medikament),
-                      )),
-                      DropdownMenuItem<String>(
-                        value: '__add_new_medikament__',
-                        child: Row(
-                          children: [
-                            Icon(Icons.add, color: colorScheme.secondary),
-                            SizedBox(width: 8),
-                            Text('Neues Medikament hinzufügen'),
-                          ],
                         ),
-                      ),
-                    ],
-                    onChanged: (value) async {
-                      if (value == null) return;
-                      if (value == '__add_new_medikament__') {
-                        await _addNewMedication(context);
-                      } else if (!_selectedMedikamente.contains(value)) {
-                        setState(() {
-                          _selectedMedikamente.add(value);
-                        });
-                      }
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 32),
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelText: 'Kommentar',
+                      border: OutlineInputBorder(),
+                    ),
+                    minLines: 2,
+                    maxLines: 5,
+                    onChanged: (val) {
                       setState(() {
-                        _dropdownMedikamentValue = null;
+                        _selectedComment = val;
                       });
                     },
+                  ),
+                  const Divider(height: 32),
+                  ListTile(
+                    leading: const Icon(Icons.calendar_today, size: 28),
+                    title: Text(
+                      "${selectedDate.toLocal()}".split(' ')[0],
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit, size: 28),
+                      onPressed: () => _selectDate(context),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16.0),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Kommentar',
-                border: OutlineInputBorder(),
-              ),
-              minLines: 2,
-              maxLines: 5,
-              onChanged: (val) {
-                setState(() {
-                  _selectedComment = val;
-                });
-              },
-            ),
-            const SizedBox(height: 16.0),
-            Text("${selectedDate.toLocal()}".split(' ')[0]),
-            const SizedBox(height: 16.0),
-            ElevatedButton(
-              onPressed: () => _selectDate(context),
-              child: const Text('Datum ändern'),
-            ),
-          ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -332,94 +351,113 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
         title: const Text('Drittmedikation eintragen'),
         elevation: 5.0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Behandlung',
-                border: OutlineInputBorder(),
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-              ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_selectedMedikamente.isNotEmpty)
-                    Wrap(
-                      spacing: 8.0,
-                      runSpacing: 4.0,
-                      children: _selectedMedikamente.map((medikament) {
-                        return Chip(
-                          label: Text(medikament),
-                          deleteIcon: const Icon(Icons.close),
-                          onDeleted: () {
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Behandlung',
+                      border: OutlineInputBorder(),
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_selectedMedikamente.isNotEmpty)
+                          Wrap(
+                            spacing: 8.0,
+                            runSpacing: 4.0,
+                            children: _selectedMedikamente.map((medikament) {
+                              return Chip(
+                                label: Text(medikament),
+                                deleteIcon: const Icon(Icons.close),
+                                onDeleted: () {
+                                  setState(() {
+                                    _selectedMedikamente.remove(medikament);
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        DropdownButton<String>(
+                          value: _dropdownMedikamentValue,
+                          isExpanded: true,
+                          underline: Container(),
+                          items: [
+                            ..._medikamente.map((medikament) => DropdownMenuItem(
+                                  value: medikament,
+                                  child: Text(medikament),
+                                )),
+                            DropdownMenuItem<String>(
+                              value: '__add_new_medikament__',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.add, color: colorScheme.secondary),
+                                  SizedBox(width: 8),
+                                  Text('Neues Medikament hinzufügen'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            if (value == '__add_new_medikament__') {
+                              await _addNewMedication(context);
+                            } else if (!_selectedMedikamente.contains(value)) {
+                              setState(() {
+                                _selectedMedikamente.add(value);
+                              });
+                            }
                             setState(() {
-                              _selectedMedikamente.remove(medikament);
+                              _dropdownMedikamentValue = null;
                             });
                           },
-                        );
-                      }).toList(),
-                    ),
-                  DropdownButton<String>(
-                    value: _dropdownMedikamentValue,
-                    isExpanded: true,
-                    underline: Container(),
-                    items: [
-                      ..._medikamente.map((medikament) => DropdownMenuItem(
-                        value: medikament,
-                        child: Text(medikament),
-                      )),
-                      DropdownMenuItem<String>(
-                        value: '__add_new_medikament__',
-                        child: Row(
-                          children: [
-                            Icon(Icons.add, color: colorScheme.secondary),
-                            SizedBox(width: 8),
-                            Text('Neues Medikament hinzufügen'),
-                          ],
                         ),
-                      ),
-                    ],
-                    onChanged: (value) async {
-                      if (value == null) return;
-                      if (value == '__add_new_medikament__') {
-                        await _addNewMedication(context);
-                      } else if (!_selectedMedikamente.contains(value)) {
-                        setState(() {
-                          _selectedMedikamente.add(value);
-                        });
-                      }
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 32),
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelText: 'Kommentar',
+                      border: OutlineInputBorder(),
+                    ),
+                    minLines: 2,
+                    maxLines: 5,
+                    onChanged: (val) {
                       setState(() {
-                        _dropdownMedikamentValue = null;
+                        _selectedComment = val;
                       });
                     },
+                  ),
+                  const Divider(height: 32),
+                  ListTile(
+                    leading: const Icon(Icons.calendar_today, size: 28),
+                    title: Text(
+                      "${selectedDate.toLocal()}".split(' ')[0],
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit, size: 28),
+                      onPressed: () => _selectDate(context),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16.0),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Kommentar',
-                border: OutlineInputBorder(),
-              ),
-              minLines: 2,
-              maxLines: 5,
-              onChanged: (val) {
-                setState(() {
-                  _selectedComment = val;
-                });
-              },
-            ),
-            const SizedBox(height: 16.0),
-            Text("${selectedDate.toLocal()}".split(' ')[0]),
-            const SizedBox(height: 16.0),
-            ElevatedButton(
-              onPressed: () => _selectDate(context),
-              child: const Text('Datum ändern'),
-            ),
-          ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -573,36 +611,54 @@ class _EntryPageEndState extends State<EntryPageEnd> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Verendung eintragen')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Kommentar (optional)',
-                border: OutlineInputBorder(),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    decoration: const InputDecoration(
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelText: 'Kommentar (optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => setState(() => _selectedComment = val),
+                  ),
+                  const Divider(height: 32),
+                  ListTile(
+                    leading: const Icon(Icons.calendar_today, size: 28),
+                    title: Text(
+                      "${selectedDate.toLocal()}".split(' ')[0],
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit, size: 28),
+                      onPressed: () => _selectDate(context),
+                    ),
+                  ),
+                  const Divider(height: 32),
+                  Row(
+                    children: [
+                      const Text('Verendung in Tierbewegungen übertragen'),
+                      Switch(
+                        value: _isToggleOn,
+                        onChanged: (v) => setState(() => _isToggleOn = v),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              onChanged: (val) =>
-                  setState(() => _selectedComment = val),
             ),
-            const SizedBox(height: 16.0),
-            Text("${selectedDate.toLocal()}".split(' ')[0]),
-            const SizedBox(height: 16.0),
-            ElevatedButton(
-              onPressed: () => _selectDate(context),
-              child: const Text('Datum ändern'),
-            ),
-            const SizedBox(height: 16.0),
-            Row(
-              children: [
-                const Text('Verendung in Tierbewegungen übertragen'),
-                Switch(
-                  value: _isToggleOn,
-                  onChanged: (v) => setState(() => _isToggleOn = v),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
       floatingActionButton:
@@ -625,3 +681,7 @@ class _EntryPageEndState extends State<EntryPageEnd> {
     );
   }
 }
+
+
+
+

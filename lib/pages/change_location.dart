@@ -193,43 +193,62 @@ class _ChangeLocationState extends State<ChangeLocation> {
         title: const Text('Umstallen'),
         elevation: 5.0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            DropdownButtonFormField<String>(
-              value: canSave ? _selectedNewLocation : null,
-              items: _locations
-                  .map((loc) => DropdownMenuItem(
-                value: loc,
-                child: Text(loc.replaceAll('#', '-')),
-              ))
-                  .toList(),
-              decoration: const InputDecoration(
-                labelText: 'Umstallen nach',
-                border: OutlineInputBorder(),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: canSave ? _selectedNewLocation : null,
+                    items: _locations
+                        .map((loc) => DropdownMenuItem(
+                              value: loc,
+                              child: Text(loc.replaceAll('#', '-')),
+                            ))
+                        .toList(),
+                    decoration: const InputDecoration(
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      labelText: 'Umstallen nach',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) =>
+                        setState(() => _selectedNewLocation = val ?? ''),
+                  ),
+                  const Divider(height: 32),
+                  ListTile(
+                    leading: const Icon(Icons.calendar_today, size: 28),
+                    title: Text(
+                      "${selectedDate.toLocal()}".split(' ')[0],
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit, size: 28),
+                      onPressed: () => _selectDate(context),
+                    ),
+                  ),
+                  const Divider(height: 32),
+                  Row(
+                    children: [
+                      const Text('Umstallen in Tierbewegungen übertragen'),
+                      Switch(
+                        value: _isToggleOn,
+                        onChanged: (v) => setState(() => _isToggleOn = v),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              onChanged: (val) =>
-                  setState(() => _selectedNewLocation = val ?? ''),
             ),
-            const SizedBox(height: 16.0),
-            Text("${selectedDate.toLocal()}".split(' ')[0]),
-            const SizedBox(height: 16.0),
-            ElevatedButton(
-              onPressed: () => _selectDate(context),
-              child: const Text('Datum ändern'),
-            ),
-            const SizedBox(height: 16.0),
-            Row(
-              children: [
-                const Text('Umstallen in Tierbewegungen übertragen'),
-                Switch(
-                  value: _isToggleOn,
-                  onChanged: (v) => setState(() => _isToggleOn = v),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -257,6 +276,8 @@ class _ChangeLocationState extends State<ChangeLocation> {
     );
   }
 }
+
+
 
 
 
