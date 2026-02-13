@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tier_monitor/pages/homepage.dart';
 import 'package:tier_monitor/pages/settings.dart';
 import 'package:tier_monitor/pages/analysis_page.dart';
-import 'package:tier_monitor/pages/history.dart';
+import 'package:tier_monitor/pages/history_overview.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
