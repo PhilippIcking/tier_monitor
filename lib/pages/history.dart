@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:sqflite/sqflite.dart'; //Android, IOS, MACOS
 import 'dart:convert';
 import 'package:tier_monitor/db/app_database.dart';
+import 'package:tier_monitor/pages/history_individual.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -143,26 +144,6 @@ class _HistoryPageState extends State<HistoryPage> {
     await database.close();
   }
 
-  Future<void> _deleteEntry(int index) async {
-    Database database = await openAppDatabase();
-
-    // ID des zu löschenden Eintrags abrufen
-    int entryId = _entries[index]['id'];
-
-    // Abhängig von der aktuellen Tabelle den Eintrag löschen
-    await database.update(
-      _currentTable,
-      withTombstone(),
-      where: 'id = ?',
-      whereArgs: [entryId],
-    );
-
-    // Aktualisierte Einträge aus der aktuellen Tabelle abrufen
-    await _fetchEntriesFromDatabase();
-
-    await database.close();
-  }
-
   String formatJsonList(String? jsonString) {
     if (jsonString == null || jsonString.isEmpty) return "";
     try {
@@ -226,59 +207,45 @@ class _HistoryPageState extends State<HistoryPage> {
                 final entry = _entries[index];
                 final medCount =
                     _currentTable == 'tierdoku' ? _medikationCount(entry) : 0;
-                return ExpansionTile(
-                  collapsedBackgroundColor: _hasVerendung(entry)
-                      ? Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                      : null,
-                  backgroundColor: _hasVerendung(entry)
-                      ? Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                      : null,
-                  title: GestureDetector(
-                    onLongPress: () async {
-                      if (_currentTable == 'tierdoku') {
-                        // Dialog anzeigen und Benutzer nach Bestätigung fragen
-                        bool deleteConfirmed = await showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: const Text('Eintrag löschen'),
-                              content: const Text(
-                                  'Möchten Sie diesen Eintrag wirklich löschen?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop(false);
-                                  },
-                                  child: const Text('Abbrechen'),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop(true);
-                                  },
-                                  child: const Text('Löschen'),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-
-                        // Wenn der Benutzer die Löschung bestätigt hat, den Eintrag löschen
-                        if (deleteConfirmed == true) {
-                          await _deleteEntry(index);
-                        }
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                              Text('Löschen von Tierbewegungen nicht möglich')),
-                        );
-                      }
-                    },
-                    child: Row(
+                return Dismissible(
+                  key: ValueKey('history_${entry['id']}'),
+                  direction: DismissDirection.startToEnd,
+                  confirmDismiss: (_) async {
+                    final stallname = entry['stallname']?.toString();
+                    if (stallname == null || stallname.isEmpty) {
+                      return false;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            HistoryPageSecondMedikation(stallname: stallname),
+                      ),
+                    );
+                    return false;
+                  },
+                  background: Container(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: 20.0),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      size: 30.0,
+                    ),
+                  ),
+                  child: ExpansionTile(
+                    collapsedBackgroundColor: _hasVerendung(entry)
+                        ? Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                        : null,
+                    backgroundColor: _hasVerendung(entry)
+                        ? Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                        : null,
+                    title: Row(
                       children: [
                         Expanded(
                           child: Text(
@@ -301,92 +268,92 @@ class _HistoryPageState extends State<HistoryPage> {
                         ],
                       ],
                     ),
+                    children: [
+                      if (entry['date'] != null)
+                        ListTile(
+                          title: Text(
+                              "Datum: ${entry['date'].toString().substring(0, 10)}"),
+                        ),
+                      if (entry['bucht'] != null)
+                        ListTile(
+                          title: Text("Bucht: ${entry['bucht']}"),
+                        ),
+                      if (entry['symptome'] != null)
+                        ListTile(
+                          title: Text(
+                              "Symptome: ${formatJsonList(entry['symptome'])}"),
+                        ),
+                      if (entry['medikament'] != null)
+                        ListTile(
+                          title: Text(
+                              "Erstmedikation: ${formatJsonList(entry['medikament'])}"),
+                        ),
+                      if (entry['farbe'] != null)
+                        ListTile(
+                          title: Text("Farbe: ${entry['farbe']}"),
+                        ),
+                      if (entry['zugang_abgang'] != null)
+                        ListTile(
+                          title:
+                              Text("Zu-/Abgang: ${entry['zugang_abgang']}"),
+                        ),
+                      if (entry['anzahl'] != null)
+                        ListTile(
+                          title: Text("Anzahl: ${entry['anzahl']}"),
+                        ),
+                      if (entry['comment'] != null && entry['comment'] != "")
+                        ListTile(
+                          title: Text("Kommentar: ${entry['comment']}"),
+                        ),
+                      if (entry['second_medikament'] != null)
+                        ListTile(
+                          title: Text(
+                              "Zweitmedikation: ${formatJsonList(entry['second_medikament'])}"),
+                        ),
+                      if (entry['second_date'] != null)
+                        ListTile(
+                          title: Text(
+                              "Datum Zweitmedikation: ${entry['second_date'].toString().substring(0, 10)}"),
+                        ),
+                      if (entry['second_comment'] != null &&
+                          entry['second_comment'] != "")
+                        ListTile(
+                          title: Text(
+                              "Kommentar Zweitmedikation: ${entry['second_comment']}"),
+                        ),
+                      if (entry['third_medikament'] != null)
+                        ListTile(
+                          title: Text(
+                              "Drittmedikation: ${formatJsonList(entry['third_medikament'])}"),
+                        ),
+                      if (entry['third_date'] != null)
+                        ListTile(
+                          title: Text(
+                              "Datum Drittmedikation: ${entry['third_date'].toString().substring(0, 10)}"),
+                        ),
+                      if (entry['third_comment'] != null &&
+                          entry['third_comment'] != "")
+                        ListTile(
+                          title: Text(
+                              "Kommentar Drittmedikation: ${entry['third_comment']}"),
+                        ),
+                      if (entry['end_date'] != null)
+                        ListTile(
+                          title: Text(
+                              "Datum Verendung: ${entry['end_date'].toString().substring(0, 10)}"),
+                        ),
+                      if (entry['end_comment'] != null &&
+                          entry['end_comment'] != "")
+                        ListTile(
+                          title: Text(
+                              "Kommentar Verendung: ${entry['end_comment']}"),
+                        ),
+                      if (entry['end'] != null)
+                        ListTile(
+                          title: Text("Zusatz: ${entry['end']}"),
+                        ),
+                    ],
                   ),
-                  children: [
-                    if (entry['date'] != null)
-                      ListTile(
-                        title: Text(
-                            "Datum: ${entry['date'].toString().substring(0, 10)}"),
-                      ),
-                    if (entry['bucht'] != null)
-                      ListTile(
-                        title: Text("Bucht: ${entry['bucht']}"),
-                      ),
-                    if (entry['symptome'] != null)
-                      ListTile(
-                        title: Text("Symptome: ${formatJsonList(entry['symptome'])}"),
-                      ),
-
-                    if (entry['medikament'] != null)
-                      ListTile(
-                        title:
-                            Text("Erstmedikation: ${formatJsonList(entry['medikament'])}"),
-                      ),
-                    if (entry['farbe'] != null)
-                      ListTile(
-                        title: Text("Farbe: ${entry['farbe']}"),
-                      ),
-                    if (entry['zugang_abgang'] != null)
-                      ListTile(
-                        title:
-                            Text("Zu-/Abgang: ${entry['zugang_abgang']}"),
-                      ),
-                    if (entry['anzahl'] != null)
-                      ListTile(
-                        title: Text("Anzahl: ${entry['anzahl']}"),
-                      ),
-                    if (entry['comment'] != null && entry['comment'] != "")
-                      ListTile(
-                        title: Text("Kommentar: ${entry['comment']}"),
-                      ),
-                    if (entry['second_medikament'] != null)
-                      ListTile(
-                        title: Text(
-                            "Zweitmedikation: ${formatJsonList(entry['second_medikament'])}"),
-                      ),
-                    if (entry['second_date'] != null)
-                      ListTile(
-                        title: Text(
-                            "Datum Zweitmedikation: ${entry['second_date'].toString().substring(0, 10)}"),
-                      ),
-                    if (entry['second_comment'] != null &&
-                        entry['second_comment'] != "")
-                      ListTile(
-                        title: Text(
-                            "Kommentar Zweitmedikation: ${entry['second_comment']}"),
-                      ),
-                    if (entry['third_medikament'] != null)
-                      ListTile(
-                        title: Text(
-                            "Drittmedikation: ${formatJsonList(entry['third_medikament'])}"),
-                      ),
-                    if (entry['third_date'] != null)
-                      ListTile(
-                        title: Text(
-                            "Datum Drittmedikation: ${entry['third_date'].toString().substring(0, 10)}"),
-                      ),
-                    if (entry['third_comment'] != null &&
-                        entry['third_comment'] != "")
-                      ListTile(
-                        title: Text(
-                            "Kommentar Drittmedikation: ${entry['third_comment']}"),
-                      ),
-                    if (entry['end_date'] != null)
-                      ListTile(
-                        title: Text(
-                            "Datum Verendung: ${entry['end_date'].toString().substring(0, 10)}"),
-                      ),
-                    if (entry['end_comment'] != null &&
-                        entry['end_comment'] != "")
-                      ListTile(
-                        title: Text(
-                            "Kommentar Verendung: ${entry['end_comment']}"),
-                      ),
-                    if (entry['end'] != null)
-                      ListTile(
-                        title: Text("Zusatz: ${entry['end']}"),
-                      ),
-                  ],
                 );
               },
             ),
@@ -503,3 +470,9 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 }
+
+
+
+
+
+
