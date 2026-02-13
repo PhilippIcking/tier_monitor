@@ -173,6 +173,27 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  int _medikationCount(Map<String, dynamic> entry) {
+    int count = 0;
+    bool hasValue(String? v) {
+      if (v == null) return false;
+      final trimmed = v.trim();
+      return trimmed.isNotEmpty && trimmed != '[]';
+    }
+
+    if (hasValue(entry['medikament']?.toString())) count++;
+    if (hasValue(entry['second_medikament']?.toString())) count++;
+    if (hasValue(entry['third_medikament']?.toString())) count++;
+    return count;
+  }
+
+  bool _hasVerendung(Map<String, dynamic> entry) {
+    final endDate = entry['end_date']?.toString().trim() ?? '';
+    final endComment = entry['end_comment']?.toString().trim() ?? '';
+    final endFlag = entry['end']?.toString().trim() ?? '';
+    return endDate.isNotEmpty || endComment.isNotEmpty || endFlag.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -202,7 +223,20 @@ class _HistoryPageState extends State<HistoryPage> {
             child: ListView.builder(
               itemCount: _entries.length,
               itemBuilder: (context, index) {
+                final entry = _entries[index];
+                final medCount =
+                    _currentTable == 'tierdoku' ? _medikationCount(entry) : 0;
                 return ExpansionTile(
+                  collapsedBackgroundColor: _hasVerendung(entry)
+                      ? Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                      : null,
+                  backgroundColor: _hasVerendung(entry)
+                      ? Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                      : null,
                   title: GestureDetector(
                     onLongPress: () async {
                       if (_currentTable == 'tierdoku') {
@@ -244,94 +278,113 @@ class _HistoryPageState extends State<HistoryPage> {
                         );
                       }
                     },
-                    child: Text(
-                      "${_entries[index]['stallname']}".split("#")[1] +
-                          (_currentTable == 'tierdoku'
-                              ? " - Bucht: ${_entries[index]['bucht']} ${_entries[index]['farbe']} ${formatJsonList(_entries[index]['symptome'])}"
-                              : " - ${_entries[index]['date'].toString().substring(0, 10)}, ${_entries[index]['zugang_abgang']}: ${_entries[index]['anzahl']}"),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            "${entry['stallname']}".split("#")[1] +
+                                (_currentTable == 'tierdoku'
+                                    ? " - Bucht: ${entry['bucht']} ${entry['farbe']} ${formatJsonList(entry['symptome'])}"
+                                    : " - ${entry['date'].toString().substring(0, 10)}, ${entry['zugang_abgang']}: ${entry['anzahl']}"),
+                          ),
+                        ),
+                        if (_currentTable == 'tierdoku' && medCount > 0) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.medication_outlined, size: 16),
+                          if (medCount > 1) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              medCount.toString(),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ],
+                      ],
                     ),
                   ),
                   children: [
-                    if (_entries[index]['date'] != null)
+                    if (entry['date'] != null)
                       ListTile(
                         title: Text(
-                            "Datum: ${_entries[index]['date'].toString().substring(0, 10)}"),
+                            "Datum: ${entry['date'].toString().substring(0, 10)}"),
                       ),
-                    if (_entries[index]['bucht'] != null)
+                    if (entry['bucht'] != null)
                       ListTile(
-                        title: Text("Bucht: ${_entries[index]['bucht']}"),
+                        title: Text("Bucht: ${entry['bucht']}"),
                       ),
-                    if (_entries[index]['symptome'] != null)
+                    if (entry['symptome'] != null)
                       ListTile(
-                        title: Text("Symptome: ${formatJsonList(_entries[index]['symptome'])}"),
+                        title: Text("Symptome: ${formatJsonList(entry['symptome'])}"),
                       ),
 
-                    if (_entries[index]['medikament'] != null)
-                      ListTile(
-                        title: Text("Erstmedikation: ${formatJsonList(_entries[index]['medikament'])}"),
-                      ),
-                    if (_entries[index]['farbe'] != null)
-                      ListTile(
-                        title: Text("Farbe: ${_entries[index]['farbe']}"),
-                      ),
-                    if (_entries[index]['zugang_abgang'] != null)
+                    if (entry['medikament'] != null)
                       ListTile(
                         title:
-                        Text("Zu-/Abgang: ${_entries[index]['zugang_abgang']}"),
+                            Text("Erstmedikation: ${formatJsonList(entry['medikament'])}"),
                       ),
-                    if (_entries[index]['anzahl'] != null)
+                    if (entry['farbe'] != null)
                       ListTile(
-                        title: Text("Anzahl: ${_entries[index]['anzahl']}"),
+                        title: Text("Farbe: ${entry['farbe']}"),
                       ),
-                    if (_entries[index]['comment'] != null &&
-                        _entries[index]['comment'] != "")
+                    if (entry['zugang_abgang'] != null)
                       ListTile(
-                        title: Text("Kommentar: ${_entries[index]['comment']}"),
+                        title:
+                            Text("Zu-/Abgang: ${entry['zugang_abgang']}"),
                       ),
-                    if (_entries[index]['second_medikament'] != null)
+                    if (entry['anzahl'] != null)
                       ListTile(
-                        title: Text("Zweitmedikation: ${formatJsonList(_entries[index]['second_medikament'])}"),
+                        title: Text("Anzahl: ${entry['anzahl']}"),
                       ),
-                    if (_entries[index]['second_date'] != null)
+                    if (entry['comment'] != null && entry['comment'] != "")
                       ListTile(
-                        title: Text(
-                            "Datum Zweitmedikation: ${_entries[index]['second_date'].toString().substring(0, 10)}"),
+                        title: Text("Kommentar: ${entry['comment']}"),
                       ),
-                    if (_entries[index]['second_comment'] != null &&
-                        _entries[index]['second_comment'] != "")
+                    if (entry['second_medikament'] != null)
                       ListTile(
                         title: Text(
-                            "Kommentar Zweitmedikation: ${_entries[index]['second_comment']}"),
+                            "Zweitmedikation: ${formatJsonList(entry['second_medikament'])}"),
                       ),
-                    if (_entries[index]['third_medikament'] != null)
-                      ListTile(
-                        title: Text("Drittmedikation: ${formatJsonList(_entries[index]['third_medikament'])}"),
-                      ),
-                    if (_entries[index]['third_date'] != null)
+                    if (entry['second_date'] != null)
                       ListTile(
                         title: Text(
-                            "Datum Drittmedikation: ${_entries[index]['third_date'].toString().substring(0, 10)}"),
+                            "Datum Zweitmedikation: ${entry['second_date'].toString().substring(0, 10)}"),
                       ),
-                    if (_entries[index]['third_comment'] != null &&
-                        _entries[index]['third_comment'] != "")
+                    if (entry['second_comment'] != null &&
+                        entry['second_comment'] != "")
                       ListTile(
                         title: Text(
-                            "Kommentar Drittmedikation: ${_entries[index]['third_comment']}"),
+                            "Kommentar Zweitmedikation: ${entry['second_comment']}"),
                       ),
-                    if (_entries[index]['end_date'] != null)
+                    if (entry['third_medikament'] != null)
                       ListTile(
                         title: Text(
-                            "Datum Verendung: ${_entries[index]['end_date'].toString().substring(0, 10)}"),
+                            "Drittmedikation: ${formatJsonList(entry['third_medikament'])}"),
                       ),
-                    if (_entries[index]['end_comment'] != null &&
-                        _entries[index]['end_comment'] != "")
+                    if (entry['third_date'] != null)
                       ListTile(
                         title: Text(
-                            "Kommentar Verendung: ${_entries[index]['end_comment']}"),
+                            "Datum Drittmedikation: ${entry['third_date'].toString().substring(0, 10)}"),
                       ),
-                    if (_entries[index]['end'] != null)
+                    if (entry['third_comment'] != null &&
+                        entry['third_comment'] != "")
                       ListTile(
-                        title: Text("Zusatz: ${_entries[index]['end']}"),
+                        title: Text(
+                            "Kommentar Drittmedikation: ${entry['third_comment']}"),
+                      ),
+                    if (entry['end_date'] != null)
+                      ListTile(
+                        title: Text(
+                            "Datum Verendung: ${entry['end_date'].toString().substring(0, 10)}"),
+                      ),
+                    if (entry['end_comment'] != null &&
+                        entry['end_comment'] != "")
+                      ListTile(
+                        title: Text(
+                            "Kommentar Verendung: ${entry['end_comment']}"),
+                      ),
+                    if (entry['end'] != null)
+                      ListTile(
+                        title: Text("Zusatz: ${entry['end']}"),
                       ),
                   ],
                 );
