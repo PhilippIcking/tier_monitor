@@ -321,24 +321,29 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropdownButtonFormField(
-                    value: _selectedBucht.isNotEmpty ? _selectedBucht : null,
-                    items: _buchten
-                        .map((bucht) => DropdownMenuItem(
-                      value: bucht,
-                      child: Text(bucht),
-                    ))
-                        .toList(),
+                  InputDecorator(
+                    isEmpty: _selectedBucht.isEmpty,
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       labelText: 'Bucht',
+                      hintText: 'Bucht auswählen',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (newValue) {
-                      setState(() {
-                        _selectedBucht = newValue.toString();
-                      });
-                    },
+                    child: DropdownButton<String>(
+                      value: _selectedBucht.isNotEmpty ? _selectedBucht : null,
+                      isExpanded: true,
+                      underline: Container(),
+                      items: _buchten
+                          .map((bucht) => DropdownMenuItem(
+                        value: bucht,
+                        child: Text(bucht),
+                      ))
+                          .toList(),
+                      onChanged: (newValue) {
+                        setState(() {
+                          _selectedBucht = newValue.toString();
+                        });
+                      },
+                    ),
                   ),
                   const Divider(height: 32),
 
@@ -346,11 +351,11 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       InputDecorator(
+                        isEmpty: _selectedSymptome.isEmpty,
                         decoration: const InputDecoration(
                           labelText: 'Symptome',
+                          hintText: 'Symptom auswählen',
                           border: OutlineInputBorder(),
-                          floatingLabelBehavior:
-                          FloatingLabelBehavior.always,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,11 +425,11 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       InputDecorator(
+                        isEmpty: _selectedMedikamente.isEmpty,
                         decoration: const InputDecoration(
                           labelText: 'Behandlung',
+                          hintText: 'Medikament auswählen',
                           border: OutlineInputBorder(),
-                          floatingLabelBehavior:
-                          FloatingLabelBehavior.always,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,31 +497,36 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                   ),
                   const Divider(height: 32),
 
-                  DropdownButtonFormField(
-                    value: _selectedFarbe.isNotEmpty ? _selectedFarbe : null,
-                    items: _farben
-                        .map((farbe) => DropdownMenuItem(
-                      value: farbe,
-                      child: Text(farbe),
-                    ))
-                        .toList(),
+                  InputDecorator(
+                    isEmpty: _selectedFarbe.isEmpty,
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       labelText: 'Makierung',
+                      hintText: 'Farbe auswählen',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (newValue) {
-                      setState(() {
-                        _selectedFarbe = newValue.toString();
-                      });
-                    },
+                    child: DropdownButton<String>(
+                      value: _selectedFarbe.isNotEmpty ? _selectedFarbe : null,
+                      isExpanded: true,
+                      underline: Container(),
+                      items: _farben
+                          .map((farbe) => DropdownMenuItem(
+                        value: farbe,
+                        child: Text(farbe),
+                      ))
+                          .toList(),
+                      onChanged: (newValue) {
+                        setState(() {
+                          _selectedFarbe = newValue.toString();
+                        });
+                      },
+                    ),
                   ),
                   const Divider(height: 32),
 
                   TextFormField(
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       labelText: 'Kommentar',
+                      hintText: 'Optional',
                       border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(fontSize: 18),
@@ -558,3 +568,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
     );
   }
 }
+
+
+
+

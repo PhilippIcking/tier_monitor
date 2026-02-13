@@ -231,8 +231,8 @@ class _TierbewegungState extends State<Tierbewegung> {
                   // Eingabefeld für Tierbewegung
                   TextFormField(
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelText: 'Tierbewegung',
+                      labelText: 'Anzahl',
+                      hintText: 'Anzahl eingeben',
                       border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(fontSize: 18),
@@ -248,8 +248,8 @@ class _TierbewegungState extends State<Tierbewegung> {
                   // Kommentar-Eingabe (multiline, min 3 Zeilen, max 5 Zeilen)
                   TextFormField(
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelText: 'Zusatzkommentar (optional)',
+                      labelText: 'Kommentar',
+                      hintText: 'Optional',
                       border: OutlineInputBorder(),
                     ),
                     style: const TextStyle(fontSize: 18),

@@ -130,10 +130,11 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   InputDecorator(
+                    isEmpty: _selectedMedikamente.isEmpty,
                     decoration: const InputDecoration(
                       labelText: 'Behandlung',
+                      hintText: 'Medikament auswählen',
                       border: OutlineInputBorder(),
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,8 +195,8 @@ class _EntryPageSecondMedikationState extends State<EntryPageSecondMedikation> {
                   const Divider(height: 32),
                   TextFormField(
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       labelText: 'Kommentar',
+                      hintText: 'Optional',
                       border: OutlineInputBorder(),
                     ),
                     minLines: 2,
@@ -366,10 +367,11 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   InputDecorator(
+                    isEmpty: _selectedMedikamente.isEmpty,
                     decoration: const InputDecoration(
                       labelText: 'Behandlung',
+                      hintText: 'Medikament auswählen',
                       border: OutlineInputBorder(),
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,8 +432,8 @@ class _EntryPageThirdMedikationState extends State<EntryPageThirdMedikation> {
                   const Divider(height: 32),
                   TextFormField(
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       labelText: 'Kommentar',
+                      hintText: 'Optional',
                       border: OutlineInputBorder(),
                     ),
                     minLines: 2,
@@ -627,8 +629,8 @@ class _EntryPageEndState extends State<EntryPageEnd> {
                 children: [
                   TextFormField(
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelText: 'Kommentar (optional)',
+                      labelText: 'Kommentar',
+                      hintText: 'Optional',
                       border: OutlineInputBorder(),
                     ),
                     onChanged: (val) => setState(() => _selectedComment = val),
@@ -664,10 +666,8 @@ class _EntryPageEndState extends State<EntryPageEnd> {
       floatingActionButton:
       FloatingActionButton(
         onPressed: () async {
-          // 1) tierdoku‑Eintrag speichern
           await _updateEndEntry(
               widget.entryId, _selectedComment, selectedDate);
-          // 2) optional Abgang eintragen
           if (_isToggleOn) {
             await _insertVerendungMovement(context);
           }

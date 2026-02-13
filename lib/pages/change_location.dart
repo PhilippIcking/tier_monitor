@@ -207,21 +207,27 @@ class _ChangeLocationState extends State<ChangeLocation> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropdownButtonFormField<String>(
-                    value: canSave ? _selectedNewLocation : null,
-                    items: _locations
-                        .map((loc) => DropdownMenuItem(
-                              value: loc,
-                              child: Text(loc.replaceAll('#', '-')),
-                            ))
-                        .toList(),
+                  InputDecorator(
+                    isEmpty: _selectedNewLocation.isEmpty,
                     decoration: const InputDecoration(
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       labelText: 'Umstallen nach',
+                      hintText: 'Stall auswählen',
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (val) =>
-                        setState(() => _selectedNewLocation = val ?? ''),
+                    child: DropdownButton<String>(
+                      value:
+                          _selectedNewLocation.isNotEmpty ? _selectedNewLocation : null,
+                      isExpanded: true,
+                      underline: Container(),
+                      items: _locations
+                          .map((loc) => DropdownMenuItem(
+                                value: loc,
+                                child: Text(loc.replaceAll('#', '-')),
+                              ))
+                          .toList(),
+                      onChanged: (val) =>
+                          setState(() => _selectedNewLocation = val ?? ''),
+                    ),
                   ),
                   const Divider(height: 32),
                   ListTile(
