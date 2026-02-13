@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:sqflite/sqflite.dart'; //Android, IOS, MACOS
 import 'package:tier_monitor/pages/entry_second_plus_medication.dart';
 import 'package:tier_monitor/pages/change_location.dart';
+import 'package:tier_monitor/pages/documentation.dart';
 import 'dart:convert';
 import 'package:tier_monitor/db/app_database.dart';
 
@@ -127,53 +128,67 @@ class _HistoryPageSecondMedikationState
           final medCount = _currentTable == 'tierdoku'
               ? _medikationCount(entry)
               : 0;
-          return ExpansionTile(
+          return Dismissible(
+            key: ValueKey('entry_${entry['id']}'),
+            direction: DismissDirection.endToStart,
+            confirmDismiss: (direction) async {
+              if (_currentTable != 'tierdoku') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Löschen von Tierbewegungen nicht möglich'),
+                  ),
+                );
+                return false;
+              }
+
+              final bool? deleteConfirmed = await showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Text('Eintrag löschen'),
+                    content:
+                        const Text('Möchten Sie diesen Eintrag wirklich löschen?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(false);
+                        },
+                        child: const Text('Abbrechen'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(true);
+                        },
+                        child: const Text('Löschen'),
+                      ),
+                    ],
+                  );
+                },
+              );
+              return deleteConfirmed ?? false;
+            },
+            onDismissed: (_) async {
+              if (_currentTable == 'tierdoku') {
+                await _deleteEntry(index);
+              }
+            },
+            background: Container(),
+            secondaryBackground: Container(
+              color: colorScheme.error,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20.0),
+              child: Icon(
+                Icons.delete,
+                color: colorScheme.onError,
+                size: 30.0,
+              ),
+            ),
+            child: ExpansionTile(
             collapsedBackgroundColor:
                 _hasVerendung(entry) ? colorScheme.surfaceContainerHighest : null,
             backgroundColor:
                 _hasVerendung(entry) ? colorScheme.surfaceContainerHighest : null,
-            title: GestureDetector(
-              onLongPress: () async {
-                if (_currentTable == 'tierdoku') {
-                  // Dialog anzeigen und Benutzer nach Bestätigung fragen
-                  bool deleteConfirmed = await showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text('Eintrag löschen'),
-                        content: const Text(
-                            'Möchten Sie diesen Eintrag wirklich löschen?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(false);
-                            },
-                            child: const Text('Abbrechen'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(true);
-                            },
-                            child: const Text('Löschen'),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-
-                  // Wenn der Benutzer die Löschung bestätigt hat, den Eintrag löschen
-                  if (deleteConfirmed == true) {
-                    await _deleteEntry(index);
-                  }
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text('Löschen von Tierbewegungen nicht möglich')),
-                  );
-                }
-              },
-              child: Row(
+            title: Row(
                 children: [
                   Expanded(
                     child: Text(
@@ -196,11 +211,22 @@ class _HistoryPageSecondMedikationState
                   ],
                 ],
               ),
-            ),
             trailing: _currentTable == 'tierdoku'
                 ? PopupMenuButton<String>(
                     onSelected: (String value) async {
-                      if (value == 'zweit_medikation') {
+                      if (value == 'ersteintrag') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => Tiermassnahme(
+                              stallname: widget.stallname,
+                              entryId: _entries[index]['id'] as int,
+                            ),
+                          ),
+                        ).then((_) {
+                          _fetchEntriesFromDatabase();
+                        });
+                      } else if (value == 'zweit_medikation') {
                         // Navigation zur Seite für die Zweitmedikation
                         Navigator.push(
                           context,
@@ -251,6 +277,10 @@ class _HistoryPageSecondMedikationState
                     },
                     itemBuilder: (BuildContext context) =>
                         <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'ersteintrag',
+                        child: Text('Ersteintrag ändern'),
+                      ),
                       const PopupMenuItem<String>(
                         value: 'zweit_medikation',
                         child: Text('Zweitmedikation eintragen'),
@@ -353,6 +383,7 @@ class _HistoryPageSecondMedikationState
                   title: Text("Zusatz: ${_entries[index]['end']}"),
                 ),
             ],
+            ),
           );
         },
       ),

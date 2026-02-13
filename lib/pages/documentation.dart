@@ -6,8 +6,13 @@ import 'package:tier_monitor/db/app_database.dart';
 
 class Tiermassnahme extends StatefulWidget {
   final String stallname;
+  final int? entryId;
 
-  const Tiermassnahme({super.key, required this.stallname});
+  const Tiermassnahme({
+    super.key,
+    required this.stallname,
+    this.entryId,
+  });
 
   @override
   _TiermassnahmeState createState() => _TiermassnahmeState();
@@ -19,6 +24,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
   List<String> _medikamente = [];
   List<String> _farben = [];
   DateTime selectedDate = DateTime.now();
+  final TextEditingController _commentController = TextEditingController();
 
   String _selectedBucht = '';
   String _selectedFarbe = '';
@@ -35,6 +41,12 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     _buchten = prefs.getStringList('buchten') ?? List.generate(16, (i) => (i + 1).toString());
@@ -43,7 +55,87 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
         prefs.getStringList('medications') ?? [];
     _farben = prefs.getStringList('farben') ?? ['Rot', 'Grün', 'Blau'];
 
+    if (widget.entryId != null) {
+      await _loadExistingEntry(widget.entryId!);
+    }
+
     setState(() {});
+  }
+
+  List<String> _parseStoredList(String? raw) {
+    if (raw == null) return [];
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty || trimmed == '[]') return [];
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is List) {
+        return decoded
+            .map((value) => value?.toString().trim() ?? '')
+            .where((value) => value.isNotEmpty)
+            .toList();
+      }
+      if (decoded is String) {
+        return _splitFallback(decoded);
+      }
+    } catch (_) {
+      return _splitFallback(trimmed);
+    }
+    return [];
+  }
+
+  List<String> _splitFallback(String value) {
+    if (value.contains(',')) {
+      return value
+          .split(',')
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .toList();
+    }
+    return value.trim().isEmpty ? [] : [value.trim()];
+  }
+
+  Future<void> _loadExistingEntry(int entryId) async {
+    final database = await openAppDatabase();
+    final rows = await database.query(
+      'tierdoku',
+      where: 'id = ?',
+      whereArgs: [entryId],
+      limit: 1,
+    );
+    await database.close();
+    if (rows.isEmpty) return;
+    final row = rows.first;
+
+    _selectedBucht = row['bucht']?.toString() ?? '';
+    _selectedFarbe = row['farbe']?.toString() ?? '';
+    _selectedComment = row['comment']?.toString() ?? '';
+    _commentController.text = _selectedComment;
+
+    _selectedSymptome = _parseStoredList(row['symptome']?.toString());
+    _selectedMedikamente = _parseStoredList(row['medikament']?.toString());
+
+    final dateStr = row['date']?.toString();
+    final parsedDate = dateStr != null ? DateTime.tryParse(dateStr) : null;
+    if (parsedDate != null) {
+      selectedDate = parsedDate;
+    }
+
+    for (final symptom in _selectedSymptome) {
+      if (!_symptome.contains(symptom)) {
+        _symptome.add(symptom);
+      }
+    }
+    for (final med in _selectedMedikamente) {
+      if (!_medikamente.contains(med)) {
+        _medikamente.add(med);
+      }
+    }
+    if (_selectedBucht.isNotEmpty && !_buchten.contains(_selectedBucht)) {
+      _buchten.add(_selectedBucht);
+    }
+    if (_selectedFarbe.isNotEmpty && !_farben.contains(_selectedFarbe)) {
+      _farben.add(_selectedFarbe);
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -71,18 +163,35 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
     final date = selectedDate.toString();
 
     final database = await openAppDatabase();
-    await database.insert(
-      'tierdoku',
-      withSyncFieldsForInsert({
-        'stallname': widget.stallname,
-        'bucht': bucht,
-        'symptome': symptome,
-        'medikament': medikamente,
-        'farbe': farbe,
-        'comment': comment,
-        'date': date,
-      }),
-    );
+    if (widget.entryId == null) {
+      await database.insert(
+        'tierdoku',
+        withSyncFieldsForInsert({
+          'stallname': widget.stallname,
+          'bucht': bucht,
+          'symptome': symptome,
+          'medikament': medikamente,
+          'farbe': farbe,
+          'comment': comment,
+          'date': date,
+        }),
+      );
+    } else {
+      await database.update(
+        'tierdoku',
+        withSyncFieldsForUpdate({
+          'stallname': widget.stallname,
+          'bucht': bucht,
+          'symptome': symptome,
+          'medikament': medikamente,
+          'farbe': farbe,
+          'comment': comment,
+          'date': date,
+        }),
+        where: 'id = ?',
+        whereArgs: [widget.entryId],
+      );
+    }
     await database.close();
     _showFeedback(context);
   }
@@ -414,6 +523,7 @@ class _TiermassnahmeState extends State<Tiermassnahme> {
                     keyboardType: TextInputType.multiline,
                     minLines: 2,
                     maxLines: 5,
+                    controller: _commentController,
                     onChanged: (newValue) {
                       setState(() {
                         _selectedComment = newValue;
