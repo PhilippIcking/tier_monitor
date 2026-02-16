@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
@@ -244,11 +244,13 @@ class _ChangeLocationState extends State<ChangeLocation> {
                   const Divider(height: 32),
                   Row(
                     children: [
-                      const Text('Umstallen in Tierbewegungen übertragen'),
+                      const Spacer(),
+                      const Text('In Tierbewegungen übertragen'),
                       Switch(
                         value: _isToggleOn,
                         onChanged: (v) => setState(() => _isToggleOn = v),
                       ),
+                      const Spacer(),
                     ],
                   ),
                 ],
