@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:sqflite/sqflite.dart'; // Android, iOS, macOS
@@ -14,17 +14,24 @@ class Tierbewegung extends StatefulWidget {
 }
 
 class _TierbewegungState extends State<Tierbewegung> {
-  late int _currentCount;
+  int _currentCount = 0;
   int _newCount = 0;
-  bool _isZugang = false;
+  String _movementType = 'Abgang';
   bool _isToggleOn = false;
   String _selectedComment = '';
+  String _selectedNewLocation = '';
+  List<String> _locations = [];
   DateTime selectedDate = DateTime.now();
+
+  bool get _isZugang => _movementType == 'Zugang';
+  bool get _isAbgang => _movementType == 'Abgang';
+  bool get _isUmstallen => _movementType == 'Umstallen';
 
   @override
   void initState() {
     super.initState();
     _loadCount();
+    _loadLocations();
   }
 
   Future<void> _loadCount() async {
@@ -34,9 +41,73 @@ class _TierbewegungState extends State<Tierbewegung> {
     });
   }
 
+  Future<void> _loadLocations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final widgetNames = prefs.getStringList('widget_names') ?? [];
+    final locationNames = <String>[];
+    for (final w in widgetNames) {
+      final locationList = prefs.getStringList(w) ?? [];
+      locationNames.addAll(locationList);
+    }
+    locationNames.remove(widget.stallname);
+    setState(() {
+      _locations = locationNames;
+    });
+  }
+
   Future<void> _saveCount() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(widget.stallname, _currentCount);
+  }
+
+  Future<int> _getBaselineBeforeDate(
+      Database db, String stallName, DateTime date) async {
+    final result = await db.rawQuery(
+      "SELECT COALESCE(SUM(CASE "
+      "WHEN zugang_abgang = 'Zugang' THEN anzahl "
+      "ELSE -anzahl END), 0) AS total "
+      "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ? AND date < ?",
+      [stallName, date.toString()],
+    );
+    return (result.first['total'] as int?) ?? 0;
+  }
+
+  int _movementDelta(Map<String, dynamic> row) {
+    final qty = row['anzahl'] as int? ?? 0;
+    return row['zugang_abgang'] == 'Zugang' ? qty : -qty;
+  }
+
+  Future<bool> _wouldGoNegativeAfterDelta(
+      Database db, String stallName, DateTime date, int delta) async {
+    int baseline = await _getBaselineBeforeDate(db, stallName, date);
+    int cumulative = baseline + delta;
+    if (cumulative < 0) return true;
+
+    final subsequentRecords = await db.rawQuery(
+      "SELECT * FROM tierbewegungen "
+      "WHERE deleted_at IS NULL AND stallname = ? AND date >= ? "
+      "ORDER BY date ASC, id ASC",
+      [stallName, date.toString()],
+    );
+    for (var record in subsequentRecords) {
+      cumulative += _movementDelta(record);
+      if (cumulative < 0) return true;
+    }
+    return false;
+  }
+
+  Future<int> _refreshSharedCountFromDb(Database db, String stallName) async {
+    final result = await db.rawQuery(
+      "SELECT COALESCE(SUM(CASE "
+      "WHEN zugang_abgang = 'Zugang' THEN anzahl "
+      "ELSE -anzahl END), 0) AS total "
+      "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ?",
+      [stallName],
+    );
+    final total = (result.first['total'] as int?) ?? 0;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(stallName, total);
+    return total;
   }
 
   Future<void> _updateCount(BuildContext context) async {
@@ -50,65 +121,48 @@ class _TierbewegungState extends State<Tierbewegung> {
       return;
     }
 
-    Database database = await openAppDatabase();
-
-    final baselineResult = await database.rawQuery(
-      "SELECT COALESCE(SUM(CASE "
-          "WHEN zugang_abgang = 'Zugang' THEN anzahl "
-          "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ? AND date < ?",
-      [widget.stallname, selectedDate.toString()],
-    );
-    int baseline = (baselineResult.first['total'] as int?) ?? 0;
-    int movementValue = _isZugang ? _newCount : -_newCount;
-    int newTierbestand = baseline + movementValue;
-
-    if (newTierbestand < 0) {
-      await database.close();
+    if (_isUmstallen && _selectedNewLocation.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Die Anzahl darf nicht negativ sein'),
+          content: Text('Bitte Zielstall fuer Umstallen auswaehlen'),
           duration: Duration(seconds: 2),
         ),
       );
-    } else {
-      final subsequentRecords = await database.rawQuery(
-        "SELECT * FROM tierbewegungen "
-            "WHERE deleted_at IS NULL AND stallname = ? AND date >= ? "
-            "ORDER BY date ASC, id ASC",
-        [widget.stallname, selectedDate.toString()],
-      );
+      return;
+    }
 
-      int cumulative = newTierbestand;
-      bool wouldGoNegative = false;
-      for (var record in subsequentRecords) {
-        final recordAnzahl = record['anzahl'] as int? ?? 0;
-        final zugangAbgang = record['zugang_abgang'] as String? ?? '';
-        final recordMovement = (zugangAbgang == 'Zugang') ? recordAnzahl : -recordAnzahl;
-        cumulative += recordMovement;
-        if (cumulative < 0) {
-          wouldGoNegative = true;
-          break;
+    final database = await openAppDatabase();
+    try {
+      if (_isAbgang || _isUmstallen) {
+        final wouldGoNegative = await _wouldGoNegativeAfterDelta(
+          database,
+          widget.stallname,
+          selectedDate,
+          -_newCount,
+        );
+        if (wouldGoNegative) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Die Änderung würde zu einem negativen Bestand führen'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return;
         }
       }
 
-      if (wouldGoNegative) {
-        await database.close();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Die Änderung würde zu einem negativen Bestand führen'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-
-      await database.close();
-      await _speichern(context);
+      await _speichern(database);
       setState(() {
         _newCount = 0;
+        _selectedComment = '';
+        if (_isUmstallen) {
+          _selectedNewLocation = '';
+        }
       });
       _showFeedback(context);
+    } finally {
+      await database.close();
     }
   }
 
@@ -129,7 +183,46 @@ class _TierbewegungState extends State<Tierbewegung> {
     }
   }
 
-  Future<void> _speichern(BuildContext context) async {
+  Future<void> _speichern(Database database) async {
+    if (_isUmstallen) {
+      final target = _selectedNewLocation;
+      final commentSuffix =
+          _selectedComment.trim().isEmpty ? '' : ': ${_selectedComment.trim()}';
+      await database.insert(
+        'tierbewegungen',
+        withSyncFieldsForInsert({
+          'stallname': widget.stallname,
+          'anzahl': _newCount,
+          'zugang_abgang': 'Abgang',
+          'comment':
+              'Umgestallt nach ${target.replaceAll("#", "-")}$commentSuffix',
+          'date': selectedDate.toString(),
+          'end': '',
+        }),
+      );
+
+      await database.insert(
+        'tierbewegungen',
+        withSyncFieldsForInsert({
+          'stallname': target,
+          'anzahl': _newCount,
+          'zugang_abgang': 'Zugang',
+          'comment':
+              'Umgestallt von ${widget.stallname.replaceAll("#", "-")}$commentSuffix',
+          'date': selectedDate.toString(),
+          'end': '',
+        }),
+      );
+
+      final currentTotal =
+          await _refreshSharedCountFromDb(database, widget.stallname);
+      await _refreshSharedCountFromDb(database, target);
+      setState(() {
+        _currentCount = currentTotal;
+      });
+      return;
+    }
+
     final newRecord = {
       'stallname': widget.stallname,
       'anzahl': _newCount,
@@ -139,24 +232,13 @@ class _TierbewegungState extends State<Tierbewegung> {
       'end': _isToggleOn ? 'Verendung' : '',
     };
 
-    Database database = await openAppDatabase();
-
     await database.insert('tierbewegungen', withSyncFieldsForInsert(newRecord));
-
-    final totalResult = await database.rawQuery(
-      "SELECT COALESCE(SUM(CASE "
-          "WHEN zugang_abgang = 'Zugang' THEN anzahl "
-          "ELSE -anzahl END), 0) AS total "
-          "FROM tierbewegungen WHERE deleted_at IS NULL AND stallname = ?",
-      [widget.stallname],
-    );
-    int cumulative = (totalResult.first['total'] as int?) ?? 0;
+    final currentTotal = await _refreshSharedCountFromDb(database, widget.stallname);
 
     setState(() {
-      _currentCount = cumulative;
+      _currentCount = currentTotal;
     });
     await _saveCount();
-    await database.close();
   }
 
   void _showFeedback(BuildContext context) {
@@ -167,8 +249,10 @@ class _TierbewegungState extends State<Tierbewegung> {
 
   @override
   Widget build(BuildContext context) {
+    final canSave =
+        _newCount > 0 && (!_isUmstallen || _selectedNewLocation.isNotEmpty);
     final colorScheme = Theme.of(context).colorScheme;
-    final Color fabColor = (_newCount > 0)
+    final Color fabColor = canSave
         ? colorScheme.primary
         : colorScheme.onSurface.withValues(alpha: 0.38);
 
@@ -186,10 +270,10 @@ class _TierbewegungState extends State<Tierbewegung> {
               borderRadius: BorderRadius.circular(12.0),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               child: Column(
                 children: [
-                  // Aktuelle Tierzahl
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -202,33 +286,73 @@ class _TierbewegungState extends State<Tierbewegung> {
                   ),
                   const Divider(height: 32),
 
-                  // Toggle Buttons für Zugang/Abgang
                   ToggleButtons(
-                    isSelected: [_isZugang, !_isZugang],
+                    isSelected: [
+                      _movementType == 'Zugang',
+                      _movementType == 'Abgang',
+                      _movementType == 'Umstallen',
+                    ],
                     onPressed: (index) {
                       setState(() {
-                        _isZugang = index == 0;
-                        if (_isZugang) _isToggleOn = false;
+                        if (index == 0) {
+                          _movementType = 'Zugang';
+                        } else if (index == 1) {
+                          _movementType = 'Abgang';
+                        } else {
+                          _movementType = 'Umstallen';
+                        }
+
+                        if (!_isAbgang) {
+                          _isToggleOn = false;
+                        }
+                        if (!_isUmstallen) {
+                          _selectedNewLocation = '';
+                        }
                       });
                     },
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
+                    constraints: const BoxConstraints(minHeight: 48, minWidth: 92),
                     selectedColor: Theme.of(context).colorScheme.onPrimary,
                     color: Theme.of(context).colorScheme.onSurface,
                     fillColor: Theme.of(context).colorScheme.primaryContainer,
                     children: const [
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Text('Zugang', style: TextStyle(fontSize: 16)),
+                        padding: EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add_circle_outline, size: 18),
+                            SizedBox(width: 6),
+                            Text('Zugang', style: TextStyle(fontSize: 15)),
+                          ],
+                        ),
                       ),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.0),
-                        child: Text('Abgang', style: TextStyle(fontSize: 16)),
+                        padding: EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.remove_circle_outline, size: 18),
+                            SizedBox(width: 6),
+                            Text('Abgang', style: TextStyle(fontSize: 15)),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.swap_horiz, size: 18),
+                            SizedBox(width: 6),
+                            Text('Umstallen', style: TextStyle(fontSize: 15)),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                   const Divider(height: 32),
 
-                  // Eingabefeld für Tierbewegung
                   TextFormField(
                     decoration: const InputDecoration(
                       labelText: 'Anzahl',
@@ -245,7 +369,35 @@ class _TierbewegungState extends State<Tierbewegung> {
                   ),
                   const Divider(height: 32),
 
-                  // Kommentar-Eingabe (multiline, min 3 Zeilen, max 5 Zeilen)
+                  if (_isUmstallen) ...[
+                    InputDecorator(
+                      isEmpty: _selectedNewLocation.isEmpty,
+                      decoration: const InputDecoration(
+                        labelText: 'Umstallen nach',
+                        hintText: 'Stall auswählen',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: DropdownButton<String>(
+                        value: _selectedNewLocation.isNotEmpty
+                            ? _selectedNewLocation
+                            : null,
+                        isExpanded: true,
+                        underline: Container(),
+                        items: _locations
+                            .map(
+                              (loc) => DropdownMenuItem(
+                                value: loc,
+                                child: Text(loc.replaceAll('#', '-')),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) =>
+                            setState(() => _selectedNewLocation = val ?? ''),
+                      ),
+                    ),
+                    const Divider(height: 32),
+                  ],
+
                   TextFormField(
                     decoration: const InputDecoration(
                       labelText: 'Kommentar',
@@ -264,28 +416,26 @@ class _TierbewegungState extends State<Tierbewegung> {
                   ),
                   const Divider(height: 32),
 
-                  // Switch für Verendung
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(width: 12),
-                      const Text('Verendung', style: TextStyle(fontSize: 18)),
-                      const SizedBox(width: 12),
-                      Switch(
-                        value: _isToggleOn,
-                        onChanged: !_isZugang
-                            ? (value) {
-                          setState(() {
-                            _isToggleOn = value;
-                          });
-                        }
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 32),
+                  if (_isAbgang) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(width: 12),
+                        const Text('Verendung', style: TextStyle(fontSize: 18)),
+                        const SizedBox(width: 12),
+                        Switch(
+                          value: _isToggleOn,
+                          onChanged: (value) {
+                            setState(() {
+                              _isToggleOn = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 32),
+                  ],
 
-                  // Datumsauswahl
                   ListTile(
                     leading: const Icon(Icons.calendar_today, size: 28),
                     title: Text(
@@ -304,7 +454,7 @@ class _TierbewegungState extends State<Tierbewegung> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: (_newCount > 0) ? () => _updateCount(context) : null,
+        onPressed: canSave ? () => _updateCount(context) : null,
         backgroundColor: fabColor,
         tooltip: 'Speichern',
         child: const Icon(Icons.save),
