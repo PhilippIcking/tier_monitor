@@ -1,7 +1,8 @@
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Tier Monitor Self-Hosted Sync")
 
 DB_PATH = os.getenv("DB_PATH", "data.db")
+GERMAN_TZ = ZoneInfo("Europe/Berlin")
 
 
 def _verify_token(x_api_token: str | None = Header(default=None)) -> None:
@@ -20,8 +22,8 @@ def _verify_token(x_api_token: str | None = Header(default=None)) -> None:
         )
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _german_now() -> str:
+    return datetime.now(GERMAN_TZ).isoformat()
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -148,6 +150,22 @@ def _max_date(conn: sqlite3.Connection, table: str) -> str | None:
     return row["max_date"] if row else None
 
 
+def _overall_last_edit(conn: sqlite3.Connection) -> str | None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT MAX(last_modified) AS overall_last_edit
+        FROM (
+            SELECT last_modified FROM tierdoku
+            UNION ALL
+            SELECT last_modified FROM tierbewegungen
+        )
+        """
+    )
+    row = cur.fetchone()
+    return row["overall_last_edit"] if row else None
+
+
 def _get_meta(conn: sqlite3.Connection, key: str) -> str | None:
     cur = conn.cursor()
     cur.execute("SELECT value FROM meta WHERE key = ?", (key,))
@@ -169,6 +187,7 @@ def _summary(conn: sqlite3.Connection) -> dict[str, Any]:
         "last_upload_at": _get_meta(conn, "last_upload_at"),
         "max_date_tierdoku": _max_date(conn, "tierdoku"),
         "max_date_tierbewegungen": _max_date(conn, "tierbewegungen"),
+        "overall_last_edit_at": _overall_last_edit(conn),
     }
 
 
@@ -241,7 +260,7 @@ async def sync_upload(payload: SyncUpload) -> dict[str, Any]:
         cur.execute("DELETE FROM tierbewegungen")
         _insert_rows(conn, "tierdoku", payload.tierdoku)
         _insert_rows(conn, "tierbewegungen", payload.tierbewegungen)
-        _set_meta(conn, "last_upload_at", _utc_now())
+        _set_meta(conn, "last_upload_at", _german_now())
         conn.commit()
         return _summary(conn)
     finally:

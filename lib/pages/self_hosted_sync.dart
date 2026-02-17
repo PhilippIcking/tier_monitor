@@ -42,9 +42,11 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
   String? _localMaxMoveDate;
   String? _serverMaxDokuDate;
   String? _serverMaxMoveDate;
+  String? _serverOverallLastEditAt;
   String? _serverLastUploadAt;
   String? _localLastUploadAt;
   String? _localLastDownloadAt;
+  String? _localOverallLastEditAt;
 
   @override
   void initState() {
@@ -101,10 +103,18 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
     final maxMove = await db.rawQuery(
       'SELECT MAX(date) AS maxDate FROM tierbewegungen WHERE deleted_at IS NULL',
     );
+    final overallLastEdit = await db.rawQuery(
+      'SELECT MAX(last_modified) AS maxDate FROM ('
+      'SELECT last_modified FROM tierdoku '
+      'UNION ALL '
+      'SELECT last_modified FROM tierbewegungen'
+      ')',
+    );
     await db.close();
     setState(() {
       _localMaxDokuDate = maxDoku.first['maxDate'] as String?;
       _localMaxMoveDate = maxMove.first['maxDate'] as String?;
+      _localOverallLastEditAt = overallLastEdit.first['maxDate'] as String?;
     });
   }
 
@@ -129,6 +139,7 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
         _serverLastUploadAt = data['last_upload_at'] as String?;
         _serverMaxDokuDate = data['max_date_tierdoku'] as String?;
         _serverMaxMoveDate = data['max_date_tierbewegungen'] as String?;
+        _serverOverallLastEditAt = data['overall_last_edit_at'] as String?;
       });
     } catch (_) {
       // Ignore summary errors.
@@ -203,11 +214,12 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
     if (value == null || value.isEmpty) return '—';
     final parsed = DateTime.tryParse(value);
     if (parsed == null) return value;
-    final y = parsed.year.toString().padLeft(4, '0');
-    final m = parsed.month.toString().padLeft(2, '0');
-    final d = parsed.day.toString().padLeft(2, '0');
-    final h = parsed.hour.toString().padLeft(2, '0');
-    final min = parsed.minute.toString().padLeft(2, '0');
+    final local = parsed.toLocal();
+    final y = local.year.toString().padLeft(4, '0');
+    final m = local.month.toString().padLeft(2, '0');
+    final d = local.day.toString().padLeft(2, '0');
+    final h = local.hour.toString().padLeft(2, '0');
+    final min = local.minute.toString().padLeft(2, '0');
     return '$y-$m-$d $h:$min';
   }
 
@@ -267,6 +279,7 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
           _serverLastUploadAt = data['last_upload_at'] as String?;
           _serverMaxDokuDate = data['max_date_tierdoku'] as String?;
           _serverMaxMoveDate = data['max_date_tierbewegungen'] as String?;
+          _serverOverallLastEditAt = data['overall_last_edit_at'] as String?;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Upload abgeschlossen.')),
@@ -417,6 +430,7 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
         _serverLastUploadAt = data['last_upload_at'] as String?;
         _serverMaxDokuDate = data['max_date_tierdoku'] as String?;
         _serverMaxMoveDate = data['max_date_tierbewegungen'] as String?;
+        _serverOverallLastEditAt = data['overall_last_edit_at'] as String?;
       });
       await _loadLocalSummary();
       final mergeResult = await _mergePreferencesFromDb(showSnack: false);
@@ -793,12 +807,18 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
                   Text(
                     'Lokal: Tierbewegungen bis ${_formatDate(_localMaxMoveDate)}',
                   ),
+                  Text(
+                    'Lokal: Letzte Änderung ${_formatDate(_localOverallLastEditAt)}',
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Server: Tierdoku bis ${_formatDate(_serverMaxDokuDate)}',
                   ),
                   Text(
                     'Server: Tierbewegungen bis ${_formatDate(_serverMaxMoveDate)}',
+                  ),
+                  Text(
+                    'Server: Letzte Änderung ${_formatDate(_serverOverallLastEditAt)}',
                   ),
                   Text(
                     'Server-Upload: ${_formatDate(_serverLastUploadAt)}',
@@ -966,3 +986,4 @@ class _MergeResult {
     );
   }
 }
+

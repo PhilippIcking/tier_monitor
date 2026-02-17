@@ -26,7 +26,7 @@ docker run --rm -p 8000:8000 -e API_TOKEN=secret tier-monitor-sync
 ## Endpoints
 
 - `GET /health` simple health check
-- `GET /sync/summary` returns last upload time + max dates per table
+- `GET /sync/summary` returns last upload time + max dates per table + overall last edit timestamp
 - `POST /sync/upload` replace server data with client tables
 - `GET /sync/download` fetch server tables + summary
 
