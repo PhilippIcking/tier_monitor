@@ -311,40 +311,40 @@ class _TierbewegungState extends State<Tierbewegung> {
                       });
                     },
                     borderRadius: BorderRadius.circular(10),
-                    constraints: const BoxConstraints(minHeight: 48, minWidth: 92),
+                    constraints: const BoxConstraints(minHeight: 64, minWidth: 74),
                     selectedColor: Theme.of(context).colorScheme.onPrimary,
                     color: Theme.of(context).colorScheme.onSurface,
                     fillColor: Theme.of(context).colorScheme.primaryContainer,
                     children: const [
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10.0),
-                        child: Row(
+                        padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                        child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.add_circle_outline, size: 18),
-                            SizedBox(width: 6),
+                            SizedBox(height: 4),
                             Text('Zugang', style: TextStyle(fontSize: 15)),
                           ],
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10.0),
-                        child: Row(
+                        padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                        child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.remove_circle_outline, size: 18),
-                            SizedBox(width: 6),
+                            SizedBox(height: 4),
                             Text('Abgang', style: TextStyle(fontSize: 15)),
                           ],
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10.0),
-                        child: Row(
+                        padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                        child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.swap_horiz, size: 18),
-                            SizedBox(width: 6),
+                            SizedBox(height: 4),
                             Text('Umstallen', style: TextStyle(fontSize: 15)),
                           ],
                         ),
