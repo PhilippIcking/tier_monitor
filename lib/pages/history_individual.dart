@@ -10,8 +10,15 @@ import 'package:tier_monitor/db/app_database.dart';
 
 class HistoryPageSecondMedikation extends StatefulWidget {
   final String stallname;
+  final String initialTable;
+  final int? highlightEntryId;
 
-  const HistoryPageSecondMedikation({super.key, required this.stallname});
+  const HistoryPageSecondMedikation({
+    super.key,
+    required this.stallname,
+    this.initialTable = 'tierdoku',
+    this.highlightEntryId,
+  });
 
   @override
   _HistoryPageSecondMedikationState createState() =>
@@ -22,11 +29,21 @@ class _HistoryPageSecondMedikationState
     extends State<HistoryPageSecondMedikation> {
   List<Map<String, dynamic>> _entries = [];
   String _currentTable = 'tierdoku'; // Initial ist die Tabelle "tierdoku"
+  bool _highlightBlinkOn = false;
+  bool _highlightShouldAnimate = false;
+  Timer? _highlightTimer;
 
   @override
   void initState() {
     super.initState();
+    _currentTable = widget.initialTable;
     _fetchEntriesFromDatabase();
+  }
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchEntriesFromDatabase() async {
@@ -36,15 +53,52 @@ class _HistoryPageSecondMedikationState
     List<Map<String, dynamic>> entries = await database.rawQuery(
       'SELECT * FROM $_currentTable '
           'WHERE deleted_at IS NULL AND stallname = ? '
-          'ORDER BY id DESC LIMIT 50',
+          'ORDER BY id DESC LIMIT 100',
       [widget.stallname],
     );
 
+    final shouldHighlight = widget.highlightEntryId != null &&
+        _currentTable == widget.initialTable &&
+        entries.any((entry) => entry['id'] == widget.highlightEntryId);
+
     setState(() {
       _entries = entries;
+      _highlightShouldAnimate = shouldHighlight;
+      _highlightBlinkOn = shouldHighlight;
     });
 
+    if (shouldHighlight) {
+      _startHighlightBlink();
+    } else {
+      _highlightTimer?.cancel();
+    }
+
     await database.close();
+  }
+
+  void _startHighlightBlink() {
+    _highlightTimer?.cancel();
+    int ticks = 0;
+    _highlightTimer = Timer.periodic(const Duration(milliseconds: 650), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      ticks++;
+      if (ticks >= 6) {
+        timer.cancel();
+        setState(() {
+          _highlightBlinkOn = false;
+          _highlightShouldAnimate = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _highlightBlinkOn = !_highlightBlinkOn;
+      });
+    });
   }
 
   Future<void> _deleteEntry(int index) async {
@@ -128,6 +182,11 @@ class _HistoryPageSecondMedikationState
           final medCount = _currentTable == 'tierdoku'
               ? _medikationCount(entry)
               : 0;
+          final isHighlighted = _highlightShouldAnimate &&
+              _currentTable == widget.initialTable &&
+              entry['id'] == widget.highlightEntryId;
+          final baseColor =
+              _hasVerendung(entry) ? colorScheme.surfaceContainerHighest : null;
           return Dismissible(
             key: ValueKey('entry_${entry['id']}'),
             direction: DismissDirection.endToStart,
@@ -183,11 +242,55 @@ class _HistoryPageSecondMedikationState
                 size: 30.0,
               ),
             ),
-            child: ExpansionTile(
-            collapsedBackgroundColor:
-                _hasVerendung(entry) ? colorScheme.surfaceContainerHighest : null,
-            backgroundColor:
-                _hasVerendung(entry) ? colorScheme.surfaceContainerHighest : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeInOut,
+              decoration: BoxDecoration(
+                color: baseColor,
+                borderRadius: BorderRadius.circular(8),
+                border: isHighlighted
+                    ? Border.all(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                        width: 1.0,
+                      )
+                    : null,
+              ),
+              child: Stack(
+                children: [
+                  if (isHighlighted)
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: 0,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 240),
+                        curve: Curves.easeInOut,
+                        opacity: _highlightBlinkOn ? 1.0 : 0.18,
+                        child: IgnorePointer(
+                          child: Container(
+                            width: 42,
+                            decoration: BoxDecoration(
+                              borderRadius: const BorderRadius.horizontal(
+                                left: Radius.circular(8),
+                              ),
+                              gradient: LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  colorScheme.primary.withValues(alpha: 0.22),
+                                  colorScheme.primary.withValues(alpha: 0.08),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ExpansionTile(
+            initiallyExpanded: isHighlighted,
+            collapsedBackgroundColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
             title: Row(
                 children: [
                   Expanded(
@@ -383,6 +486,9 @@ class _HistoryPageSecondMedikationState
                   title: Text("Zusatz: ${_entries[index]['end']}"),
                 ),
             ],
+            ),
+                ],
+              ),
             ),
           );
         },

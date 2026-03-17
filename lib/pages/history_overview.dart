@@ -218,8 +218,11 @@ class _HistoryPageState extends State<HistoryPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            HistoryPageSecondMedikation(stallname: stallname),
+                        builder: (context) => HistoryPageSecondMedikation(
+                          stallname: stallname,
+                          initialTable: _currentTable,
+                          highlightEntryId: entry['id'] as int?,
+                        ),
                       ),
                     );
                     return false;
