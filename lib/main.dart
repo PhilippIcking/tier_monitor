@@ -5,6 +5,7 @@ import 'package:tier_monitor/pages/homepage.dart';
 import 'package:tier_monitor/pages/settings.dart';
 import 'package:tier_monitor/pages/analysis_page.dart';
 import 'package:tier_monitor/pages/history_overview.dart';
+import 'package:tier_monitor/sync/self_hosted_sync_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -160,6 +161,21 @@ class _MainScreenState extends State<MainScreen> {
         onThemeModeChanged: widget.onThemeModeChanged,
       ),
     ];
+    Future.microtask(() async {
+      await SelfHostedSyncService.instance.initialize();
+      final result = await SelfHostedSyncService.instance.runStartupSyncCheck();
+      if (!mounted) return;
+      final status = SelfHostedSyncService.instance.status.value;
+      if (!status.isEnabled || !status.autoSyncEnabled) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    });
   }
 
   @override
