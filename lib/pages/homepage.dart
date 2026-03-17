@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart'; // Android, iOS, macOS
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dart:io';
 import 'package:tier_monitor/pages/second_layer.dart';
 import 'package:tier_monitor/db/app_database.dart';
+import 'package:tier_monitor/sync/self_hosted_sync_models.dart';
+import 'package:tier_monitor/sync/self_hosted_sync_service.dart';
 
 class WidgetList extends StatefulWidget {
   const WidgetList({super.key});
@@ -16,19 +18,54 @@ class WidgetList extends StatefulWidget {
   _WidgetListState createState() => _WidgetListState();
 }
 
-class _WidgetListState extends State<WidgetList> {
+class _WidgetListState extends State<WidgetList>
+    with SingleTickerProviderStateMixin {
   List<String> _widgetNames = [];
+  final SelfHostedSyncService _syncService = SelfHostedSyncService.instance;
+  SyncStatus _syncStatus = const SyncStatus.initial();
+  late final AnimationController _syncIconController;
 
   @override
   void initState() {
     super.initState();
+    _syncIconController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     _loadWidgetNames();
-    _initializeDatabase();
+    _syncService.status.addListener(_onSyncStatusChanged);
+    _syncStatus = _syncService.status.value;
+    _updateSyncAnimation();
+    Future.microtask(() async {
+      await _syncService.initialize();
+      await _syncService.refreshConfig();
+    });
   }
 
-  Future<void> _initializeDatabase() async {
-    final db = await openAppDatabase();
-    await db.close();
+  @override
+  void dispose() {
+    _syncService.status.removeListener(_onSyncStatusChanged);
+    _syncIconController.dispose();
+    super.dispose();
+  }
+
+  void _onSyncStatusChanged() {
+    if (!mounted) return;
+    setState(() {
+      _syncStatus = _syncService.status.value;
+    });
+    _updateSyncAnimation();
+  }
+
+  void _updateSyncAnimation() {
+    if (_syncStatus.state == SyncStateType.syncing) {
+      if (!_syncIconController.isAnimating) {
+        _syncIconController.repeat();
+      }
+    } else {
+      _syncIconController.stop();
+      _syncIconController.reset();
+    }
   }
 
   void _loadWidgetNames() async {
@@ -56,6 +93,15 @@ class _WidgetListState extends State<WidgetList> {
       _widgetNames.remove(name);
     });
     _saveWidgetNames();
+  }
+
+  Future<void> _runManualSync() async {
+    final result = await _syncService.syncNow(trigger: SyncTrigger.manual);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message)),
+    );
+    await _syncService.refreshConfig();
   }
 
   Future<void> _exportData(BuildContext context) async {
@@ -240,6 +286,39 @@ class _WidgetListState extends State<WidgetList> {
       appBar: AppBar(
         title: const Text('Betriebe'),
         elevation: 5.0,
+        actions: [
+          if (_syncStatus.showButton)
+            IconButton(
+              tooltip: 'Synchronisieren',
+              onPressed: _syncStatus.state == SyncStateType.syncing ? null : _runManualSync,
+              icon: RotationTransition(
+                turns: _syncIconController,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.sync),
+                    if (_syncStatus.state == SyncStateType.error)
+                      Positioned(
+                        top: -1,
+                        right: -1,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.error,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.surface,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
       body: Center(
         child: ListView.builder(
