@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:tier_monitor/db/app_database.dart';
+import 'package:tier_monitor/sync/self_hosted_sync_service.dart';
 
 class SelfHostedSyncPage extends StatefulWidget {
   const SelfHostedSyncPage({super.key});
@@ -15,6 +16,7 @@ class SelfHostedSyncPage extends StatefulWidget {
 
 class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
   static const String _enabledKey = 'selfhosted_enabled';
+  static const String _autoSyncEnabledKey = 'selfhosted_auto_sync_enabled';
   static const String _baseUrlKey = 'selfhosted_base_url';
   static const String _apiTokenKey = 'selfhosted_api_token';
   static const String _deviceNameKey = 'selfhosted_device_name';
@@ -30,6 +32,7 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
   final TextEditingController _deviceNameController = TextEditingController();
 
   bool _enabled = false;
+  bool _autoSyncEnabled = false;
   bool _testing = false;
   bool _syncBusy = false;
   bool _summaryLoading = false;
@@ -65,6 +68,7 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _enabled = prefs.getBool(_enabledKey) ?? false;
+    _autoSyncEnabled = prefs.getBool(_autoSyncEnabledKey) ?? false;
     _baseUrlController.text = prefs.getString(_baseUrlKey) ?? '';
     _apiTokenController.text = prefs.getString(_apiTokenKey) ?? '';
     _deviceNameController.text = prefs.getString(_deviceNameKey) ?? '';
@@ -81,11 +85,13 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
   Future<void> _saveBool(String key, bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
+    await SelfHostedSyncService.instance.refreshConfig();
   }
 
   Future<void> _saveString(String key, String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
+    await SelfHostedSyncService.instance.refreshConfig();
   }
 
   Future<void> _refreshStatus() async {
@@ -124,7 +130,7 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
     setState(() => _summaryLoading = true);
     try {
       final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 5);
+      client.connectionTimeout = const Duration(seconds: 2);
       final request = await client.getUrl(Uri.parse('$normalized/sync/summary'));
       final token = _apiTokenController.text.trim();
       if (token.isNotEmpty) {
@@ -699,12 +705,37 @@ class _SelfHostedSyncPageState extends State<SelfHostedSyncPage> {
               onChanged: (value) {
                 setState(() {
                   _enabled = value;
+                  if (!value) {
+                    _autoSyncEnabled = false;
+                  }
                 });
                 _saveBool(_enabledKey, value);
+                if (!value) {
+                  _saveBool(_autoSyncEnabledKey, false);
+                }
                 if (value) {
                   _refreshStatus();
                 }
               },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 2,
+            child: SwitchListTile(
+              value: _autoSyncEnabled,
+              title: const Text('Auto-Sync aktivieren'),
+              subtitle: const Text(
+                'Syncronisierung bei App-Start und mittels Button im Tagebuch',
+              ),
+              onChanged: !_enabled
+                  ? null
+                  : (value) {
+                      setState(() {
+                        _autoSyncEnabled = value;
+                      });
+                      _saveBool(_autoSyncEnabledKey, value);
+                    },
             ),
           ),
           const SizedBox(height: 12),
