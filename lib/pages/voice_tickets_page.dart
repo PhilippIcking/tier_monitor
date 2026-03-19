@@ -7,6 +7,10 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tier_monitor/pages/change_amount.dart';
+import 'package:tier_monitor/pages/documentation.dart';
+import 'package:tier_monitor/pages/history_individual.dart';
 
 class VoiceRecordingItem {
   final String path;
@@ -478,12 +482,17 @@ class VoiceTicketsPage extends StatefulWidget {
 
 class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
   final VoiceTicketController _controller = VoiceTicketController.instance;
+  List<String> _betriebe = [];
+  Map<String, List<String>> _betriebStalls = {};
+  String _selectedBetrieb = '';
+  String _selectedStall = '';
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onControllerChanged);
     unawaited(_controller.initialize());
+    unawaited(_loadNavigationOptions());
   }
 
   @override
@@ -499,6 +508,215 @@ class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
     if (message == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _loadNavigationOptions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final betriebe = prefs.getStringList('widget_names') ?? [];
+    final Map<String, List<String>> stallMap = {};
+
+    for (final betrieb in betriebe) {
+      final stalls = prefs.getStringList(betrieb) ?? [];
+      stallMap[betrieb] = List<String>.from(stalls);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _betriebe = betriebe;
+      _betriebStalls = stallMap;
+
+      if (_selectedBetrieb.isNotEmpty && !_betriebe.contains(_selectedBetrieb)) {
+        _selectedBetrieb = '';
+      }
+
+      final stalls = _selectedStalls;
+      final stallLabels = stalls
+          .map((fullName) => fullName.split('#').length > 1
+              ? fullName.split('#')[1]
+              : fullName)
+          .toList();
+      if (_selectedStall.isNotEmpty && !stallLabels.contains(_selectedStall)) {
+        _selectedStall = '';
+      }
+    });
+  }
+
+  List<String> get _selectedStalls =>
+      _betriebStalls[_selectedBetrieb] ?? const [];
+
+  bool get _canNavigate =>
+      _selectedBetrieb.isNotEmpty && _selectedStall.isNotEmpty;
+
+  String get _selectedFullStallName => '$_selectedBetrieb#$_selectedStall';
+
+  Future<void> _openQuickTarget(String target) async {
+    if (!_canNavigate) return;
+
+    Widget page;
+    if (target == 'tierbewegung') {
+      page = Tierbewegung(stallname: _selectedFullStallName);
+    } else if (target == 'ersteintrag') {
+      page = Tiermassnahme(stallname: _selectedFullStallName);
+    } else {
+      page = HistoryPageSecondMedikation(stallname: _selectedFullStallName);
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+    await _loadNavigationOptions();
+  }
+
+  Widget _buildQuickSelectButton({
+    required String label,
+    required bool active,
+    required VoidCallback onPressed,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: active
+            ? OutlinedButton.styleFrom(
+                backgroundColor:
+                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 1.5,
+                ),
+              )
+            : null,
+        child: Text(label),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Expanded(
+      child: FilledButton.tonalIcon(
+        onPressed: _canNavigate ? onPressed : null,
+        icon: Icon(icon),
+        label: Text(label, textAlign: TextAlign.center),
+      ),
+    );
+  }
+
+  Widget _buildBottomQuickNavigation() {
+    final stalls = _selectedStalls;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      top: false,
+      child: Material(
+        elevation: 0,
+        color: colorScheme.surface,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: colorScheme.outlineVariant),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Text(
+                  'Schnellnavigation',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _betriebe
+                      .map(
+                        (betrieb) => _buildQuickSelectButton(
+                          label: betrieb,
+                          active: _selectedBetrieb == betrieb,
+                          onPressed: () {
+                            setState(() {
+                              _selectedBetrieb = betrieb;
+                              _selectedStall = '';
+                            });
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: stalls
+                      .map(
+                        (fullName) {
+                          final stallLabel = fullName.split('#').length > 1
+                              ? fullName.split('#')[1]
+                              : fullName;
+                          return _buildQuickSelectButton(
+                            label: stallLabel,
+                            active: _selectedStall == stallLabel,
+                            onPressed: () {
+                              setState(() {
+                                _selectedStall = stallLabel;
+                              });
+                            },
+                          );
+                        },
+                      )
+                      .toList(),
+                ),
+              ),
+              if (_selectedBetrieb.isNotEmpty && stalls.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Keine Ställe für den gewählten Betrieb vorhanden.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _buildActionButton(
+                    label: 'Tierbewegung',
+                    icon: Icons.swap_vert,
+                    onPressed: () => _openQuickTarget('tierbewegung'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildActionButton(
+                    label: 'Ersteintrag',
+                    icon: Icons.assignment,
+                    onPressed: () => _openQuickTarget('ersteintrag'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildActionButton(
+                    label: 'Aendern Eintrag',
+                    icon: Icons.history,
+                    onPressed: () => _openQuickTarget('aendern_eintrag'),
+                  ),
+                ],
+              ),
+              if (_betriebe.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Keine Betriebe vorhanden.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -525,59 +743,6 @@ class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
     final h = dateTime.hour.toString().padLeft(2, '0');
     final min = dateTime.minute.toString().padLeft(2, '0');
     return '$y-$m-$d $h:$min';
-  }
-
-  Widget _buildStatusCard() {
-    VoiceRecordingItem? activeRecording;
-    for (final item in _controller.recordings) {
-      if (item.path == _controller.activePath) {
-        activeRecording = item;
-        break;
-      }
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              _controller.isRecording ? Icons.mic : Icons.library_music,
-              size: 32,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _controller.isRecording
-                        ? 'Aufnahme läuft'
-                        : '${_controller.recordings.length} Aufnahme(n) gefunden',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _controller.isRecording
-                        ? 'Dauer: ${_formatDuration(_controller.recordDuration)}'
-                        : activeRecording != null
-                            ? 'Aktive Wiedergabe: ${_formatDateTime(activeRecording.createdAt)}'
-                            : 'Noch nichts ausgewählt',
-                  ),
-                  if (_controller.recordingPathInProgress != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      p.basename(_controller.recordingPathInProgress!),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildRecordingTile(VoiceRecordingItem item) {
@@ -696,12 +861,11 @@ class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
       appBar: AppBar(
         title: const Text('Voice Tickets'),
       ),
+      bottomNavigationBar: _buildBottomQuickNavigation(),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildStatusCard(),
-            const SizedBox(height: 16),
             Expanded(
               child: _controller.isLoading
                   ? const Center(child: CircularProgressIndicator())
