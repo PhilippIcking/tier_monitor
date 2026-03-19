@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -48,6 +48,7 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
   VoiceTicketController._() {
     WidgetsBinding.instance.addObserver(this);
     _bindPlayerStreams();
+    unawaited(_player.setReleaseMode(ReleaseMode.loop));
     unawaited(initialize());
   }
 
@@ -59,13 +60,13 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
   final List<VoiceRecordingItem> _recordings = [];
 
   StreamSubscription<Duration>? _positionSub;
-  StreamSubscription<Duration?>? _durationSub;
+  StreamSubscription<Duration>? _durationSub;
+  StreamSubscription<void>? _playerCompleteSub;
   StreamSubscription<PlayerState>? _playerStateSub;
 
   Timer? _recordTimer;
   DateTime? _recordStartedAt;
 
-  bool _isInitialized = false;
   bool _isLoading = true;
   bool _isRecording = false;
   bool _isPlaying = false;
@@ -100,8 +101,6 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> initialize() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
     await _loadRecordingsFromDisk();
   }
 
@@ -143,24 +142,20 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _bindPlayerStreams() {
-    _positionSub = _player.positionStream.listen((position) {
+    _positionSub = _player.onPositionChanged.listen((position) {
       _position = position;
       notifyListeners();
     });
 
-    _durationSub = _player.durationStream.listen((duration) {
-      _duration = duration ?? Duration.zero;
+    _durationSub = _player.onDurationChanged.listen((duration) {
+      _duration = duration;
       notifyListeners();
     });
 
-    _playerStateSub = _player.playerStateStream.listen((state) async {
-      if (state.processingState == ProcessingState.completed) {
-        await _player.pause();
-        await _player.seek(Duration.zero);
-      }
+    _playerCompleteSub = _player.onPlayerComplete.listen((_) {});
 
-      _isPlaying =
-          state.playing && state.processingState != ProcessingState.completed;
+    _playerStateSub = _player.onPlayerStateChanged.listen((state) {
+      _isPlaying = state == PlayerState.playing;
       notifyListeners();
     });
   }
@@ -202,7 +197,8 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
 
       final files = allEntities.whereType<File>().where((file) {
         final name = p.basename(file.path).toLowerCase();
-        return name.startsWith('voice_') && name.endsWith('.m4a');
+        return name.startsWith('voice_') &&
+            (name.endsWith('.wav') || name.endsWith('.m4a'));
       }).toList();
 
       files.sort((a, b) {
@@ -215,13 +211,12 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
 
       for (final file in files) {
         final stat = await file.stat();
-        final duration = await _probeDuration(file.path);
         loadedItems.add(
           VoiceRecordingItem(
             path: file.path,
             fileName: p.basename(file.path),
             createdAt: stat.modified,
-            duration: duration,
+            duration: Duration.zero,
             isFinished: finishedStates[file.path] ?? false,
           ),
         );
@@ -239,6 +234,7 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
       _isLoading = false;
       _errorText = null;
       notifyListeners();
+      unawaited(_refreshAllDurations());
     } catch (e) {
       _isLoading = false;
       _errorText = 'Aufnahmen konnten nicht geladen werden: $e';
@@ -249,12 +245,30 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
   Future<Duration> _probeDuration(String path) async {
     final probePlayer = AudioPlayer();
     try {
-      await probePlayer.setFilePath(path);
-      return probePlayer.duration ?? Duration.zero;
+      final file = File(path);
+      if (!await file.exists()) return Duration.zero;
+      if (await file.length() <= 0) return Duration.zero;
+      await probePlayer.setSourceDeviceFile(path);
+      return await probePlayer.getDuration() ?? Duration.zero;
     } catch (_) {
       return Duration.zero;
     } finally {
       await probePlayer.dispose();
+    }
+  }
+
+  Future<void> _refreshAllDurations() async {
+    for (final item in List<VoiceRecordingItem>.from(_recordings)) {
+      final duration = await _probeDuration(item.path);
+      final index = _recordings.indexWhere(
+        (recording) => recording.path == item.path,
+      );
+      if (index == -1) continue;
+      _recordings[index] = _recordings[index].copyWith(duration: duration);
+      if (_activePath == item.path) {
+        _duration = duration;
+      }
+      notifyListeners();
     }
   }
 
@@ -294,13 +308,12 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
       final tempDir = await getTemporaryDirectory();
       final path = p.join(
         tempDir.path,
-        'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+        'voice_${DateTime.now().millisecondsSinceEpoch}.wav',
       );
 
       await _recorder.start(
         const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
+          encoder: AudioEncoder.wav,
           sampleRate: 44100,
         ),
         path: path,
@@ -349,7 +362,9 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
         return;
       }
 
-      final duration = await _probeDuration(path);
+      final file = File(path);
+      final exists = await file.exists();
+      final duration = exists ? await _probeDuration(path) : Duration.zero;
       final stat = await File(path).stat();
 
       final newItem = VoiceRecordingItem(
@@ -379,24 +394,37 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
       _errorText = null;
       notifyListeners();
 
+      final file = File(item.path);
+      if (!await file.exists()) {
+        throw Exception('Datei nicht gefunden');
+      }
+      if (await file.length() <= 0) {
+        throw Exception('Audiodatei ist leer');
+      }
+
       if (_activePath == item.path) {
         if (_isPlaying) {
           await _player.pause();
         } else {
-          await _player.play();
+          await _player.stop();
+          await _player.setSourceDeviceFile(item.path);
+          _position = Duration.zero;
+          _duration = item.duration;
+          notifyListeners();
+          await _player.resume();
         }
         return;
       }
 
       await _player.stop();
-      await _player.setFilePath(item.path);
+      await _player.setSourceDeviceFile(item.path);
 
       _activePath = item.path;
       _position = Duration.zero;
       _duration = item.duration;
       notifyListeners();
 
-      await _player.play();
+      await _player.resume();
     } catch (e) {
       _errorText = 'Wiedergabe fehlgeschlagen: $e';
       notifyListeners();
@@ -467,6 +495,7 @@ class VoiceTicketController extends ChangeNotifier with WidgetsBindingObserver {
     _recordTimer?.cancel();
     await _positionSub?.cancel();
     await _durationSub?.cancel();
+    await _playerCompleteSub?.cancel();
     await _playerStateSub?.cancel();
     await _player.dispose();
     await _recorder.dispose();
@@ -594,15 +623,17 @@ class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
   }
 
   Widget _buildActionButton({
-    required String label,
+    required String tooltip,
     required IconData icon,
     required VoidCallback onPressed,
   }) {
     return Expanded(
-      child: FilledButton.tonalIcon(
-        onPressed: _canNavigate ? onPressed : null,
-        icon: Icon(icon),
-        label: Text(label, textAlign: TextAlign.center),
+      child: Tooltip(
+        message: tooltip,
+        child: FilledButton.tonal(
+          onPressed: _canNavigate ? onPressed : null,
+          child: Icon(icon),
+        ),
       ),
     );
   }
@@ -688,19 +719,19 @@ class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
               Row(
                 children: [
                   _buildActionButton(
-                    label: 'Tierbewegung',
+                    tooltip: 'Tierbewegung',
                     icon: Icons.swap_vert,
                     onPressed: () => _openQuickTarget('tierbewegung'),
                   ),
                   const SizedBox(width: 8),
                   _buildActionButton(
-                    label: 'Ersteintrag',
+                    tooltip: 'Ersteintrag',
                     icon: Icons.assignment,
                     onPressed: () => _openQuickTarget('ersteintrag'),
                   ),
                   const SizedBox(width: 8),
                   _buildActionButton(
-                    label: 'Aendern Eintrag',
+                    tooltip: 'Ändern Eintrag',
                     icon: Icons.history,
                     onPressed: () => _openQuickTarget('aendern_eintrag'),
                   ),
@@ -870,7 +901,7 @@ class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
               child: _controller.recordings.isEmpty
                   ? const Center(
                       child: Text(
-                        'Noch keine Aufnahmen vorhanden.\nHalte im Tagebuch den Mikrofon-Button gedrückt.',
+                        'Keine Aufnahmen vorhanden.\nHalte im Tagebuch den Mikrofon-Button gedrückt.',
                         textAlign: TextAlign.center,
                       ),
                     )
