@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dart:io';
 import 'package:tier_monitor/pages/second_layer.dart';
+import 'package:tier_monitor/pages/voice_tickets_page.dart';
 import 'package:tier_monitor/db/app_database.dart';
 import 'package:tier_monitor/sync/self_hosted_sync_models.dart';
 import 'package:tier_monitor/sync/self_hosted_sync_service.dart';
@@ -22,6 +23,8 @@ class _WidgetListState extends State<WidgetList>
     with SingleTickerProviderStateMixin {
   List<String> _widgetNames = [];
   final SelfHostedSyncService _syncService = SelfHostedSyncService.instance;
+  final VoiceTicketController _voiceTicketController =
+      VoiceTicketController.instance;
   SyncStatus _syncStatus = const SyncStatus.initial();
   late final AnimationController _syncIconController;
 
@@ -34,17 +37,20 @@ class _WidgetListState extends State<WidgetList>
     );
     _loadWidgetNames();
     _syncService.status.addListener(_onSyncStatusChanged);
+    _voiceTicketController.addListener(_onVoiceTicketChanged);
     _syncStatus = _syncService.status.value;
     _updateSyncAnimation();
     Future.microtask(() async {
       await _syncService.initialize();
       await _syncService.refreshConfig();
+      await _voiceTicketController.initialize();
     });
   }
 
   @override
   void dispose() {
     _syncService.status.removeListener(_onSyncStatusChanged);
+    _voiceTicketController.removeListener(_onVoiceTicketChanged);
     _syncIconController.dispose();
     super.dispose();
   }
@@ -55,6 +61,16 @@ class _WidgetListState extends State<WidgetList>
       _syncStatus = _syncService.status.value;
     });
     _updateSyncAnimation();
+  }
+
+  void _onVoiceTicketChanged() {
+    if (!mounted) return;
+    final message = _voiceTicketController.consumeError();
+    setState(() {});
+    if (message == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   void _updateSyncAnimation() {
@@ -102,6 +118,95 @@ class _WidgetListState extends State<WidgetList>
       SnackBar(content: Text(result.message)),
     );
     await _syncService.refreshConfig();
+  }
+
+  Future<void> _openVoiceTickets() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const VoiceTicketsPage(),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Widget _buildVoiceRecordDialChild() {
+    return AnimatedBuilder(
+      animation: _voiceTicketController,
+      builder: (context, _) {
+        return Listener(
+          onPointerDown: (_) => _voiceTicketController.startRecordingFromPress(),
+          onPointerUp: (_) => _voiceTicketController.stopRecordingFromPress(),
+          onPointerCancel: (_) =>
+              _voiceTicketController.stopRecordingFromPress(),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            width: 68,
+            height: 52,
+            decoration: BoxDecoration(
+              color: _voiceTicketController.isRecording
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).secondaryHeaderColor,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                width: 1,
+              ),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  _voiceTicketController.isRecording
+                      ? Icons.radio_button_on
+                      : Icons.mic,
+                  color: _voiceTicketController.isRecording
+                      ? Theme.of(context).colorScheme.onError
+                      : Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVoiceTicketListFab() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        FloatingActionButton.small(
+          heroTag: 'voice_ticket_list_fab',
+          tooltip: 'Voice Tickets',
+          onPressed: _openVoiceTickets,
+          child: const Icon(Icons.list_alt),
+        ),
+        if (_voiceTicketController.hasOpenTickets)
+          Positioned(
+            right: -4,
+            top: -4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              constraints: const BoxConstraints(minWidth: 18),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.error,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${_voiceTicketController.openTicketCount}',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onError,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Future<void> _exportData(BuildContext context) async {
@@ -385,28 +490,51 @@ class _WidgetListState extends State<WidgetList>
           },
         ),
       ),
-      floatingActionButton: SpeedDial(
-        icon: Icons.add,
-        activeIcon: Icons.close,
-        backgroundColor: Theme.of(context).secondaryHeaderColor,
-        overlayOpacity: 0.0,
-        spacing: 8,
-        spaceBetweenChildren: 8,
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          SpeedDialChild(
-            child: const Icon(Icons.add),
-            label: 'Betrieb hinzufügen',
-            labelBackgroundColor: Theme.of(context).cardColor,
-            onTap: () => _showAddBetriebDialog(context),
-          ),
-          SpeedDialChild(
-            child: const Icon(Icons.download),
-            label: 'Als Tabelle exportieren',
-            labelBackgroundColor: Theme.of(context).cardColor,
-            onTap: () => _exportData(context),
+          if (_voiceTicketController.hasOpenTickets) ...[
+            _buildVoiceTicketListFab(),
+            const SizedBox(width: 12),
+          ],
+          SpeedDial(
+            icon: Icons.add,
+            activeIcon: Icons.close,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
+            overlayOpacity: 0.0,
+            spacing: 8,
+            spaceBetweenChildren: 8,
+            children: [
+              SpeedDialChild(
+                child: _buildVoiceRecordDialChild(),
+                label: _voiceTicketController.isRecording
+                    ? 'Aufnahme läuft'
+                    : 'Für Voice Ticket halten',
+                labelBackgroundColor: Theme.of(context).cardColor,
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.transparent,
+                onTap: () {},
+              ),
+              SpeedDialChild(
+                child: const Icon(Icons.add),
+                label: 'Betrieb hinzufügen',
+                labelBackgroundColor: Theme.of(context).cardColor,
+                onTap: () => _showAddBetriebDialog(context),
+              ),
+              SpeedDialChild(
+                child: const Icon(Icons.download),
+                label: 'Als Tabelle exportieren',
+                labelBackgroundColor: Theme.of(context).cardColor,
+                onTap: () => _exportData(context),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 }
+
+
