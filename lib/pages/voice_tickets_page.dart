@@ -867,23 +867,21 @@ class _VoiceTicketsPageState extends State<VoiceTicketsPage> {
         child: Column(
           children: [
             Expanded(
-              child: _controller.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _controller.recordings.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Noch keine Aufnahmen vorhanden.\nHalte im Tagebuch den Mikrofon-Button gedrückt.',
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: _controller.recordings.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final item = _controller.recordings[index];
-                            return _buildRecordingTile(item);
-                          },
-                        ),
+              child: _controller.recordings.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Noch keine Aufnahmen vorhanden.\nHalte im Tagebuch den Mikrofon-Button gedrückt.',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: _controller.recordings.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final item = _controller.recordings[index];
+                        return _buildRecordingTile(item);
+                      },
+                    ),
             ),
           ],
         ),
